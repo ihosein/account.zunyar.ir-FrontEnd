@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { Laptop, LogOut, Radio, ShieldOff, Smartphone } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { GlassSelect } from "@/components/ui/GlassSelect";
+import { ResponsiveRecords } from "@/components/ui/ResponsiveRecords";
 import { api } from "@/lib/api";
+import { isProductAppCode } from "@/lib/apps";
 import { t, faNum } from "@/lib/i18n";
 import { toast } from "@/lib/toast";
 import { formatRelativeTime } from "@/lib/ui";
@@ -74,7 +76,15 @@ export default function SessionsPage() {
     (async () => {
       try {
         const apps = await api<RawApp[]>("/sessions/apps");
-        setAppOptions(apps.map((a) => ({ value: a.code, label: a.name || a.nameFa || a.code })));
+        const order = ["ACCOUNT", "ZUNYAR", "ZUNKO"];
+        const mapped = apps
+          .filter((a) => a.code === "ACCOUNT" || isProductAppCode(a.code))
+          .map((a) => ({ value: a.code, label: a.name || a.nameFa || a.code }));
+        mapped.sort(
+          (a, b) =>
+            order.indexOf(a.value.toUpperCase()) - order.indexOf(b.value.toUpperCase()),
+        );
+        setAppOptions(mapped);
       } catch {
         setAppOptions([]);
       }
@@ -111,8 +121,8 @@ export default function SessionsPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold text-[var(--zy-ink)]">{t("panel.sessions")}</h1>
           <p className="mt-1 text-sm text-[var(--zy-muted)]">{t("panel.sessionsHint")}</p>
         </div>
@@ -120,10 +130,10 @@ export default function SessionsPage() {
           type="button"
           onClick={() => setRevokeAllOpen(true)}
           disabled={sessions.length === 0}
-          className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 px-4 py-2.5 text-sm font-semibold text-red-500 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-red-500/30 px-3 py-2 text-xs font-semibold text-red-500 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50 sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
         >
           <ShieldOff size={16} />
-          {t("panel.revokeAllSessions")}
+          <span className="whitespace-nowrap">{t("panel.revokeAllSessions")}</span>
         </button>
       </div>
 
@@ -150,67 +160,79 @@ export default function SessionsPage() {
         </div>
       ) : (
         <div className="glass-card-static mt-6 p-1">
-          <div className="glass-inner !m-2 overflow-x-auto !p-0">
-            <table className="w-full min-w-[720px] text-start text-sm">
-              <thead>
-                <tr className="border-b border-[var(--zy-border)] text-xs text-[var(--zy-muted)]">
-                  <th className="whitespace-nowrap px-4 py-3 text-start font-medium">{t("panel.colApp")}</th>
-                  <th className="whitespace-nowrap px-4 py-3 text-start font-medium">{t("panel.colDevice")}</th>
-                  <th className="whitespace-nowrap px-4 py-3 text-start font-medium">{t("panel.colIp")}</th>
-                  <th className="whitespace-nowrap px-4 py-3 text-start font-medium">{t("panel.colLastActive")}</th>
-                  <th className="whitespace-nowrap px-4 py-3 text-start font-medium">{t("panel.colStatus")}</th>
-                  <th className="whitespace-nowrap px-4 py-3 text-start font-medium">{t("panel.colActions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((session) => (
-                  <tr key={session.id} className="border-b border-[var(--zy-border)] last:border-0">
-                    <td className="whitespace-nowrap px-4 py-3 text-[var(--zy-ink)]">
-                      {session.appName || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-[var(--zy-ink)]">
-                      <span className="inline-flex items-center gap-2">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-500/12 text-accent-600 dark:text-accent-400">
-                          <DeviceIcon device={session.device} />
-                        </span>
-                        {session.device}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-[var(--zy-muted)]" dir="ltr">
+          <div className="glass-inner !m-2 !p-2 md:!p-0">
+            <ResponsiveRecords
+              columns={[
+                t("panel.colApp"),
+                t("panel.colDevice"),
+                t("panel.colIp"),
+                t("panel.colLastActive"),
+                t("panel.colStatus"),
+                t("panel.colActions"),
+              ]}
+              rows={sessions.map((session) => {
+                const statusNode = session.current ? (
+                  <span className="zy-chip !border-emerald-500/30 !bg-emerald-500/10 !text-emerald-600 dark:!text-emerald-400">
+                    {t("panel.sessionCurrent")}
+                  </span>
+                ) : session.active === false ? (
+                  <span className="zy-chip !border-red-500/30 !bg-red-500/10 !text-red-600 dark:!text-red-400">
+                    {t("panel.sessionInactive")}
+                  </span>
+                ) : (
+                  <span className="zy-chip !border-accent-500/30 !bg-accent-500/10 !text-accent-600 dark:!text-accent-400">
+                    {t("panel.sessionActive")}
+                  </span>
+                );
+
+                const deviceNode = (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-500/12 text-accent-600 dark:text-accent-400">
+                      <DeviceIcon device={session.device} />
+                    </span>
+                    {session.device}
+                  </span>
+                );
+
+                const revokeBtn = (
+                  <button
+                    type="button"
+                    onClick={() => setRevokeId(session.id)}
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-red-500/30 px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-500/10"
+                  >
+                    <LogOut size={13} />
+                    {t("panel.revokeSession")}
+                  </button>
+                );
+
+                return {
+                  key: session.id,
+                  cells: [
+                    session.appName || "—",
+                    deviceNode,
+                    <span key="ip" className="text-[var(--zy-muted)]" dir="ltr">
                       {session.ip || "—"}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-[var(--zy-muted)]">
+                    </span>,
+                    <span key="last" className="text-[var(--zy-muted)]">
                       {formatRelativeTime(session.lastActiveAt) || faNum(session.lastActiveAt)}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      {session.current ? (
-                        <span className="zy-chip !border-emerald-500/30 !bg-emerald-500/10 !text-emerald-600 dark:!text-emerald-400">
-                          {t("panel.sessionCurrent")}
-                        </span>
-                      ) : session.active === false ? (
-                        <span className="zy-chip !border-red-500/30 !bg-red-500/10 !text-red-600 dark:!text-red-400">
-                          {t("panel.sessionInactive")}
-                        </span>
-                      ) : (
-                        <span className="zy-chip !border-accent-500/30 !bg-accent-500/10 !text-accent-600 dark:!text-accent-400">
-                          {t("panel.sessionActive")}
-                        </span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => setRevokeId(session.id)}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-500/10"
-                      >
-                        <LogOut size={13} />
-                        {t("panel.revokeSession")}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </span>,
+                    statusNode,
+                    revokeBtn,
+                  ],
+                  details: [
+                    { label: t("panel.colApp"), value: session.appName || "—" },
+                    { label: t("panel.colDevice"), value: deviceNode },
+                    { label: t("panel.colIp"), value: session.ip || "—", dir: "ltr" },
+                    {
+                      label: t("panel.colLastActive"),
+                      value: formatRelativeTime(session.lastActiveAt) || faNum(session.lastActiveAt),
+                    },
+                    { label: t("panel.colStatus"), value: statusNode },
+                  ],
+                  actions: revokeBtn,
+                };
+              })}
+            />
           </div>
         </div>
       )}

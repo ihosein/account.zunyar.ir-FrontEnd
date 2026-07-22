@@ -12,7 +12,9 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { isUploadLimitError, prepareUpload } from "@/lib/image-upload";
 import { t } from "@/lib/i18n";
+import { toast } from "@/lib/toast";
 import type { VerificationStatus } from "@/types/account";
 
 function StatusBadge({ status }: { status: VerificationStatus }) {
@@ -54,9 +56,27 @@ function DocumentUploader({
   onUpload,
 }: {
   status: VerificationStatus;
-  onUpload: (file: File) => void;
+  onUpload: (dataUrl: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const prepared = await prepareUpload(file);
+      onUpload(prepared.dataUrl);
+    } catch (err) {
+      toast.error(
+        isUploadLimitError(err) ? t("common.uploadTooLarge") : t("common.uploadFailed"),
+      );
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
   return (
     <>
       <input
@@ -64,19 +84,21 @@ function DocumentUploader({
         type="file"
         accept="image/*,application/pdf"
         className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onUpload(file);
-          e.target.value = "";
-        }}
+        disabled={busy}
+        onChange={(e) => void onFile(e.target.files?.[0])}
       />
       <button
         type="button"
+        disabled={busy}
         onClick={() => inputRef.current?.click()}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-accent-500/30 px-3 py-1.5 text-xs font-semibold text-accent-600 transition hover:bg-accent-500/10 dark:text-accent-400"
+        className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-accent-500/30 px-3 py-1.5 text-xs font-semibold text-accent-600 transition hover:bg-accent-500/10 disabled:opacity-50 dark:text-accent-400"
       >
         <Upload size={14} />
-        {status === "none" ? t("panel.uploadDocument") : t("panel.reuploadDocument")}
+        {busy
+          ? t("common.loading")
+          : status === "none"
+            ? t("panel.uploadDocument")
+            : t("panel.reuploadDocument")}
       </button>
     </>
   );

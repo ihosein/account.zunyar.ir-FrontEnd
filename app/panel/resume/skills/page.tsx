@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { ExternalLink, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { DateObject } from "react-multi-date-picker";
+import persian from "react-date-object/calendars/persian";
 import { CertificateUpload } from "@/components/ui/CertificateUpload";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { GlassDialog } from "@/components/ui/GlassDialog";
@@ -16,7 +18,6 @@ const PROF = [
   { value: "BEGINNER", labelKey: "panel.profBeginner" },
   { value: "INTERMEDIATE", labelKey: "panel.profIntermediate" },
   { value: "ADVANCED", labelKey: "panel.profAdvanced" },
-  { value: "EXPERT", labelKey: "panel.profExpert" },
 ] as const;
 
 type Form = { name: string; proficiency: string; yearLearned: string; certificateUrl?: string };
@@ -31,10 +32,15 @@ function profLabel(code: string) {
   return t(PROF.find((p) => p.value === code)?.labelKey ?? "panel.profIntermediate");
 }
 
+/** Current Jalali (Shamsi) calendar year. */
+function currentJalaliYear(): number {
+  return new DateObject({ calendar: persian }).year;
+}
+
+/** Years of experience from a Shamsi yearLearned value. */
 function yearsSince(yearLearned?: number | null): number | null {
   if (!yearLearned) return null;
-  const currentYear = new Date().getFullYear();
-  return Math.max(0, currentYear - yearLearned);
+  return Math.max(0, currentJalaliYear() - yearLearned);
 }
 
 export default function ResumeSkillsPage() {
@@ -146,38 +152,55 @@ export default function ResumeSkillsPage() {
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         {rows.map((row) => {
           const years = yearsSince(row.yearLearned);
+          const hasCert = Boolean(row.certificateUrl);
           return (
             <div key={row.id} className="glass-card-static p-1">
-              <div className="glass-inner !m-2 flex items-start justify-between gap-3 !p-5">
-                <div>
-                  <p className="font-bold text-[var(--zy-ink)]">{row.name}</p>
-                  <p className="mt-1 text-sm text-accent-700 dark:text-accent-300">
-                    {profLabel(row.proficiency)}
-                  </p>
-                  {years != null && (
-                    <p className="mt-1 text-xs text-[var(--zy-muted)]">
-                      {faNum(years)} {t("panel.yearsExpLabel")}
+              <div className="glass-inner !m-2 !p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="font-bold text-[var(--zy-ink)]">{row.name}</p>
+                    <p className="text-sm text-accent-700 dark:text-accent-300">
+                      {profLabel(row.proficiency)}
                     </p>
-                  )}
-                  {row.certificateUrl && (
-                    <a
-                      href={row.certificateUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent-600 hover:underline"
-                    >
-                      <ExternalLink size={12} />
-                      {t("panel.viewFile")}
-                    </a>
-                  )}
-                </div>
-                <div className="flex gap-1">
-                  <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-2 text-accent-600 hover:bg-accent-500/10">
-                    <Pencil size={16} />
-                  </button>
-                  <button type="button" onClick={() => setDeleteId(row.id)} className="rounded-lg p-2 text-red-500 hover:bg-red-500/10">
-                    <Trash2 size={16} />
-                  </button>
+                    {years != null && (
+                      <p className="text-xs text-[var(--zy-muted)]">
+                        {faNum(years)} {t("panel.yearsExpLabel")}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(row)}
+                        className="cursor-pointer rounded-lg p-2 text-accent-600 hover:bg-accent-500/10"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteId(row.id)}
+                        className="cursor-pointer rounded-lg p-2 text-red-500 hover:bg-red-500/10"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    {hasCert ? (
+                      <a
+                        href={row.certificateUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="zy-chip !border-emerald-500/30 !bg-emerald-500/10 !text-emerald-700 dark:!text-emerald-300"
+                      >
+                        <ExternalLink size={12} />
+                        {t("panel.certificateUploaded")}
+                      </a>
+                    ) : (
+                      <span className="zy-chip !border-red-500/30 !bg-red-500/10 !text-red-600 dark:!text-red-400">
+                        {t("panel.certificateMissing")}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -206,14 +229,20 @@ export default function ResumeSkillsPage() {
             />
           </label>
           <label className="block text-sm">
-            <span className={fieldLabelClass(isBlank(form.yearLearned))}>{t("panel.yearLearned")}</span>
+            <span className="text-[var(--zy-muted)]">
+              {t("panel.yearLearned")}{" "}
+              <span className="text-xs opacity-70">({t("common.optional")})</span>
+            </span>
             <input
-              className={fieldInputClass(isBlank(form.yearLearned))}
+              className={fieldInputClass(false)}
               value={form.yearLearned}
-              onChange={(e) => setForm((f) => ({ ...f, yearLearned: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, yearLearned: e.target.value.replace(/\D/g, "").slice(0, 4) }))
+              }
               inputMode="numeric"
               dir="ltr"
               maxLength={4}
+              placeholder="مثلاً 1400"
             />
           </label>
           <CertificateUpload

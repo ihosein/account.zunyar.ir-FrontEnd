@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { IdCard } from "lucide-react";
+import { ResponsiveRecords } from "@/components/ui/ResponsiveRecords";
 import { api } from "@/lib/api";
+import { isProductAppCode } from "@/lib/apps";
 import { t } from "@/lib/i18n";
 import type { UsernameBinding } from "@/types/account";
 
@@ -15,7 +17,9 @@ export default function UsernamesPage() {
     (async () => {
       try {
         const data = await api<UsernameBinding[]>("/account/usernames");
-        if (active) setRows(data);
+        if (active) {
+          setRows(data.filter((r) => isProductAppCode(r.appSlug)));
+        }
       } catch {
         // backend not available yet — keep empty state
       } finally {
@@ -40,32 +44,40 @@ export default function UsernamesPage() {
           </div>
         </div>
       ) : (
-        <div className="glass-card-static mt-6 overflow-x-auto p-1">
-          <div className="glass-inner !m-1 !p-0">
-            <table className="w-full min-w-[560px] text-sm">
-              <thead>
-                <tr className="border-b border-[var(--zy-border)] text-[var(--zy-muted)]">
-                  <th className="px-3 py-3 text-start font-medium">{t("panel.colApp")}</th>
-                  <th className="px-3 py-3 text-start font-medium">{t("panel.colPanel")}</th>
-                  <th className="px-3 py-3 text-start font-medium">{t("panel.colRole")}</th>
-                  <th className="px-3 py-3 text-start font-medium">{t("panel.colUsername")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-[var(--zy-border)] last:border-0">
-                    <td className="px-3 py-3 font-medium text-[var(--zy-ink)]">{row.appName}</td>
-                    <td className="px-3 py-3 text-[var(--zy-muted)]">{row.panelName || "—"}</td>
-                    <td className="px-3 py-3">
-                      {row.role ? <span className="zy-chip">{row.role}</span> : "—"}
-                    </td>
-                    <td className="px-3 py-3 font-mono text-xs text-[var(--zy-ink)]" dir="ltr">
-                      {row.username}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="glass-card-static mt-6 p-1">
+          <div className="glass-inner !m-1 !p-2 md:!p-0">
+            <ResponsiveRecords
+              columns={[
+                t("panel.colApp"),
+                t("panel.colPanel"),
+                t("panel.colRole"),
+                t("panel.colUsername"),
+              ]}
+              rows={rows.map((row) => ({
+                key: row.id,
+                cells: [
+                  <span key="a" className="font-medium">
+                    {row.appName}
+                  </span>,
+                  <span key="p" className="text-[var(--zy-muted)]">
+                    {row.panelName || "—"}
+                  </span>,
+                  row.role ? <span className="zy-chip">{row.role}</span> : "—",
+                  <span key="u" className="font-mono text-xs" dir="ltr">
+                    {row.username}
+                  </span>,
+                ],
+                details: [
+                  { label: t("panel.colApp"), value: row.appName },
+                  { label: t("panel.colPanel"), value: row.panelName || "—" },
+                  {
+                    label: t("panel.colRole"),
+                    value: row.role ? <span className="zy-chip">{row.role}</span> : "—",
+                  },
+                  { label: t("panel.colUsername"), value: row.username, dir: "ltr" },
+                ],
+              }))}
+            />
           </div>
         </div>
       )}

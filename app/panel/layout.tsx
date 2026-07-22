@@ -1,31 +1,49 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { AccountSidebar } from "@/components/layout/AccountSidebar";
+import { usePathname, useRouter } from "next/navigation";
+import { AccountSidebar, useSidebarCollapsed } from "@/components/layout/AccountSidebar";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { BrandLoader } from "@/components/brand/BrandLogo";
 import { useAuth } from "@/lib/auth";
-import { t } from "@/lib/i18n";
+import { isProfileComplete, PROFILE_PATH } from "@/lib/profile-gate";
+import clsx from "clsx";
 
 export default function PanelLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const { collapsed, toggle } = useSidebarCollapsed();
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
-  }, [loading, user, router]);
+    if (loading) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (!isProfileComplete(user) && pathname !== PROFILE_PATH) {
+      router.replace(PROFILE_PATH);
+    }
+  }, [loading, user, pathname, router]);
 
   if (loading || !user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-[var(--zy-muted)]">{t("common.loading")}</p>
-      </div>
-    );
+    return <BrandLoader />;
+  }
+
+  if (!isProfileComplete(user) && pathname !== PROFILE_PATH) {
+    return <BrandLoader />;
   }
 
   return (
     <div className="min-h-screen">
-      <AccountSidebar />
-      <main className="min-w-0 pt-16 lg:ms-[17rem] lg:pt-0">
+      <AccountSidebar collapsed={collapsed} onToggle={toggle} />
+      <MobileBottomNav />
+      <main
+        className={clsx(
+          "min-w-0 pb-[calc(4.75rem+env(safe-area-inset-bottom))] transition-[margin] duration-300 lg:pb-0 lg:pt-0",
+          collapsed ? "lg:ms-[4.75rem]" : "lg:ms-[17rem]",
+        )}
+      >
         <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8 lg:py-8">{children}</div>
       </main>
     </div>

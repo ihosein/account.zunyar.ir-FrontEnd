@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BookOpen, Headphones, Phone, Ticket } from "lucide-react";
 import clsx from "clsx";
 import { t } from "@/lib/i18n";
-import { toast } from "@/lib/toast";
 
 const SUPPORT_PHONE = "02191000000";
 
@@ -14,6 +14,7 @@ type SupportMenuProps = {
 
 /** Icon-only support control that expands on hover and opens a menu above. */
 export function SupportMenu({ className }: SupportMenuProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +41,7 @@ export function SupportMenu({ className }: SupportMenuProps) {
       icon: Ticket,
       onClick: () => {
         setOpen(false);
-        toast.info(t("common.comingSoon"));
+        router.push("/panel/support");
       },
     },
     {
@@ -59,7 +60,7 @@ export function SupportMenu({ className }: SupportMenuProps) {
       icon: BookOpen,
       onClick: () => {
         setOpen(false);
-        toast.info(t("common.comingSoon"));
+        router.push("/panel/tutorials");
       },
     },
   ] as const;

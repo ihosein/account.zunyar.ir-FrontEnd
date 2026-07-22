@@ -17,6 +17,10 @@ import { t } from "@/lib/i18n";
 export type GlassSelectOption = {
   value: string;
   label: string;
+  /** Secondary line under the label (e.g. IBAN), shown muted. */
+  description?: string;
+  /** Optional leading image (e.g. university logo). */
+  imageUrl?: string;
   /** Non-selectable section header inside the menu. */
   separator?: boolean;
 };
@@ -150,11 +154,30 @@ export function GlassSelect({
       >
         <span
           className={clsx(
-            "min-w-0 flex-1 truncate text-start",
+            "flex min-w-0 flex-1 items-center gap-2 text-start",
             !selected && "text-[var(--zy-muted)]",
           )}
         >
-          {selected?.label ?? placeholder ?? "—"}
+          {selected?.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={selected.imageUrl}
+              alt=""
+              className="zy-glass-select__logo"
+            />
+          ) : null}
+          {selected ? (
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="truncate">{selected.label}</span>
+              {selected.description ? (
+                <span className="truncate text-xs font-normal text-[var(--zy-muted)]" dir="ltr">
+                  {selected.description}
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            <span className="truncate">{placeholder ?? "—"}</span>
+          )}
         </span>
         <ChevronDown
           size={16}
@@ -218,7 +241,22 @@ export function GlassSelect({
                     setOpen(false);
                   }}
                 >
-                  <span className="min-w-0 flex-1 truncate text-start">{opt.label}</span>
+                  {opt.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={opt.imageUrl}
+                      alt=""
+                      className="zy-glass-select__logo"
+                    />
+                  ) : null}
+                  <span className="min-w-0 flex-1 text-start">
+                    <span className="block truncate">{opt.label}</span>
+                    {opt.description ? (
+                      <span className="mt-0.5 block truncate text-xs font-normal text-[var(--zy-muted)]" dir="ltr">
+                        {opt.description}
+                      </span>
+                    ) : null}
+                  </span>
                   {active && <Check size={16} className="zy-glass-select__check" />}
                 </button>
               );

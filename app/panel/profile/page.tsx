@@ -5,12 +5,15 @@ import { GlassDialog } from "@/components/ui/GlassDialog";
 import { GlassSelect } from "@/components/ui/GlassSelect";
 import { InputOTP } from "@/components/ui/InputOTP";
 import { PasswordFields, passwordFieldsValid } from "@/components/ui/PasswordFields";
+import { ProfileAvatar } from "@/components/ui/ProfileAvatar";
+import { DateSelect } from "@/components/ui/date-range-select";
 import { api, setToken } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { citiesOfProvince, IRAN_PROVINCE_OPTIONS } from "@/lib/iran-locations";
 import { dialogPrimaryBtnClass, fieldInputClass, fieldLabelClass, isBlank } from "@/lib/ui";
 import { toast } from "@/lib/toast";
+import { isProfileComplete } from "@/lib/profile-gate";
 import type { AuthResponse } from "@/types/account";
 
 type FormState = {
@@ -25,6 +28,7 @@ type FormState = {
   address: string;
   phone: string;
   email: string;
+  avatar?: string;
   password: string;
   passwordConfirm: string;
 };
@@ -41,6 +45,7 @@ const EMPTY: Omit<FormState, "password" | "passwordConfirm"> = {
   address: "",
   phone: "",
   email: "",
+  avatar: undefined,
 };
 
 type ContactKind = "phone" | "email";
@@ -62,6 +67,7 @@ export default function ProfilePage() {
   const [contactValue, setContactValue] = useState("");
   const [contactOtp, setContactOtp] = useState("");
   const [contactStep, setContactStep] = useState<"edit" | "otp">("edit");
+  const [contactDebug, setContactDebug] = useState("");
   const [contactBusy, setContactBusy] = useState(false);
 
   const needsPassword = user?.passwordSet === false;
@@ -80,6 +86,7 @@ export default function ProfilePage() {
       address: user.address || "",
       phone: user.phone || "",
       email: user.email || "",
+      avatar: user.avatar || undefined,
     };
     setForm({ ...next, password: "", passwordConfirm: "" });
     setBaseline(next);
@@ -98,12 +105,26 @@ export default function ProfilePage() {
       form.birthDate !== baseline.birthDate ||
       form.province !== baseline.province ||
       form.city !== baseline.city ||
-      form.address !== baseline.address
+      form.address !== baseline.address ||
+      (form.avatar || "") !== (baseline.avatar || "")
     );
   }, [baseline, form]);
 
-  const namesOk = form.firstName.trim().length > 0 && form.lastName.trim().length > 0;
+  const namesOk =
+    form.firstName.trim().length > 0 &&
+    form.lastName.trim().length > 0 &&
+    form.fatherName.trim().length > 0 &&
+    form.nationalCode.trim().length > 0 &&
+    form.gender.trim().length > 0;
   const passwordOk = passwordFieldsValid(form.password, form.passwordConfirm, needsPassword);
+
+  /** Red borders only while profile is still incomplete (first-time gate). */
+  const showRequiredRed = !isProfileComplete(user);
+  const firstNameInvalid = showRequiredRed && isBlank(form.firstName);
+  const lastNameInvalid = showRequiredRed && isBlank(form.lastName);
+  const fatherNameInvalid = showRequiredRed && isBlank(form.fatherName);
+  const nationalCodeInvalid = showRequiredRed && isBlank(form.nationalCode);
+  const genderInvalid = showRequiredRed && isBlank(form.gender);
 
   const canSave = useMemo(() => {
     if (busy || !namesOk || !passwordOk) return false;
@@ -128,15 +149,18 @@ export default function ProfilePage() {
       const body: Record<string, unknown> = {
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
-        fatherName: form.fatherName.trim() || undefined,
-        nationalCode: form.nationalCode.trim() || undefined,
+        fatherName: form.fatherName.trim(),
+        nationalCode: form.nationalCode.trim(),
         fullName,
-        gender: form.gender || undefined,
+        gender: form.gender,
         birthDate: form.birthDate || undefined,
         province: form.province || undefined,
         city: form.city || undefined,
         address: form.address || undefined,
       };
+      if ((form.avatar || "") !== (baseline.avatar || "")) {
+        body.avatar = form.avatar || "";
+      }
       if (needsPassword || (passwordTouched && form.password.trim())) {
         body.password = form.password;
       }
@@ -161,6 +185,7 @@ export default function ProfilePage() {
         province: u?.province ?? form.province,
         city: u?.city ?? form.city,
         address: u?.address ?? form.address,
+        avatar: u?.avatar ?? form.avatar,
         passwordSet: u?.passwordSet ?? true,
       });
       await refresh().catch(() => undefined);
@@ -178,6 +203,7 @@ export default function ProfilePage() {
     setContactValue(kind === "phone" ? form.phone : form.email);
     setContactOtp("");
     setContactStep("edit");
+    setContactDebug("");
   }
 
   function closeContact() {
@@ -195,21 +221,23 @@ export default function ProfilePage() {
           toast.error(t("auth.phoneInvalid"));
           return;
         }
-        const res = await api<{ phone: string }>("/verification/phone/request", {
+        const res = await api<{ phone: string; debugCode?: string }>("/verification/phone/request", {
           method: "POST",
           body: JSON.stringify({ phone }),
         });
         setContactValue(res.phone || phone);
+        setContactDebug(res.debugCode || "");
       } else {
         const email = contactValue.trim();
         if (!email || !email.includes("@")) {
           toast.error(t("panel.emailInvalid"));
           return;
         }
-        await api("/verification/email/request", {
+        const res = await api<{ email?: string; debugCode?: string }>("/verification/email/request", {
           method: "POST",
           body: JSON.stringify({ email }),
         });
+        setContactDebug(res.debugCode || "");
       }
       setContactOtp("");
       setContactStep("otp");
@@ -269,67 +297,81 @@ export default function ProfilePage() {
 
       <form onSubmit={submit} noValidate className="mt-6 space-y-6">
         <section className="glass-card-static p-1">
-          <div className="glass-inner !m-2 space-y-4 !p-5">
+          <div className="glass-inner !m-2 space-y-5 !p-5">
             <h2 className="font-bold text-[var(--zy-ink)]">{t("panel.sectionPersonal")}</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-sm">
-                <span className={fieldLabelClass(isBlank(form.firstName))}>{t("panel.firstName")}</span>
-                <input
-                  className={fieldInputClass(isBlank(form.firstName))}
-                  value={form.firstName}
-                  onChange={(e) => set("firstName", e.target.value)}
-                />
-              </label>
-              <label className="text-sm">
-                <span className={fieldLabelClass(isBlank(form.lastName))}>{t("panel.lastName")}</span>
-                <input
-                  className={fieldInputClass(isBlank(form.lastName))}
-                  value={form.lastName}
-                  onChange={(e) => set("lastName", e.target.value)}
-                />
-              </label>
-              <label className="text-sm">
-                <span className="text-[var(--zy-muted)]">{t("panel.fatherName")}</span>
-                <input
-                  className={fieldInputClass(false)}
-                  value={form.fatherName}
-                  onChange={(e) => set("fatherName", e.target.value)}
-                />
-              </label>
-              <label className="text-sm">
-                <span className="text-[var(--zy-muted)]">{t("panel.nationalCode")}</span>
-                <input
-                  className={fieldInputClass(false)}
-                  value={form.nationalCode}
-                  onChange={(e) =>
-                    set("nationalCode", e.target.value.replace(/\D/g, "").slice(0, 10))
-                  }
-                  inputMode="numeric"
-                  dir="ltr"
-                  maxLength={10}
-                />
-              </label>
-              <label className="text-sm">
-                <span className="text-[var(--zy-muted)]">{t("panel.gender")}</span>
-                <GlassSelect
-                  value={form.gender}
-                  onChange={(gender) => set("gender", gender)}
-                  placeholder={t("panel.genderSelect")}
-                  options={[
-                    { value: "MALE", label: t("panel.genderMale") },
-                    { value: "FEMALE", label: t("panel.genderFemale") },
-                  ]}
-                />
-              </label>
-              <label className="text-sm">
-                <span className="text-[var(--zy-muted)]">{t("panel.birthDate")}</span>
-                <input
-                  type="date"
-                  className={fieldInputClass(false)}
+
+            {/* Desktop RTL: names on the right, photo on the left. Mobile: photo first. */}
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-6">
+              <ProfileAvatar
+                className="order-1 mx-auto lg:order-2 lg:mx-0 lg:w-44 lg:shrink-0"
+                value={form.avatar}
+                onChange={(avatar) => setForm((prev) => ({ ...prev, avatar }))}
+              />
+
+              <div className="order-2 grid flex-1 gap-3 sm:grid-cols-2 lg:order-1">
+                <label className="text-sm">
+                  <span className={fieldLabelClass(firstNameInvalid)}>{t("panel.firstName")}</span>
+                  <input
+                    className={fieldInputClass(firstNameInvalid)}
+                    value={form.firstName}
+                    onChange={(e) => set("firstName", e.target.value)}
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className={fieldLabelClass(lastNameInvalid)}>{t("panel.lastName")}</span>
+                  <input
+                    className={fieldInputClass(lastNameInvalid)}
+                    value={form.lastName}
+                    onChange={(e) => set("lastName", e.target.value)}
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className={fieldLabelClass(fatherNameInvalid)}>{t("panel.fatherName")}</span>
+                  <input
+                    className={fieldInputClass(fatherNameInvalid)}
+                    value={form.fatherName}
+                    onChange={(e) => set("fatherName", e.target.value)}
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className={fieldLabelClass(nationalCodeInvalid)}>
+                    {t("panel.nationalCode")}
+                  </span>
+                  <input
+                    className={fieldInputClass(nationalCodeInvalid)}
+                    value={form.nationalCode}
+                    onChange={(e) =>
+                      set("nationalCode", e.target.value.replace(/\D/g, "").slice(0, 10))
+                    }
+                    inputMode="numeric"
+                    dir="ltr"
+                    maxLength={10}
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className={fieldLabelClass(genderInvalid)}>{t("panel.gender")}</span>
+                  <GlassSelect
+                    value={form.gender}
+                    onChange={(gender) => set("gender", gender)}
+                    placeholder={t("panel.genderSelect")}
+                    invalid={genderInvalid}
+                    options={[
+                      { value: "MALE", label: t("panel.genderMale") },
+                      { value: "FEMALE", label: t("panel.genderFemale") },
+                    ]}
+                  />
+                </label>
+                <DateSelect
+                  label={t("panel.birthDate")}
                   value={form.birthDate}
-                  onChange={(e) => set("birthDate", e.target.value)}
+                  onChange={(birthDate) => set("birthDate", birthDate)}
+                  placeholder={t("panel.birthDate")}
+                  maxDate={new Date().toISOString().slice(0, 10)}
                 />
-              </label>
+              </div>
+            </div>
+
+            <div className="grid items-end gap-3 border-t border-[var(--zy-border)] pt-5 sm:grid-cols-2">
               <label className="text-sm">
                 <span className="text-[var(--zy-muted)]">
                   {t("panel.province")}{" "}
@@ -482,6 +524,11 @@ export default function ProfilePage() {
               disabled={contactBusy}
               invalid={contactOtp.length < 5}
             />
+            {contactDebug && (
+              <p className="text-center text-xs text-accent-600" dir="ltr">
+                {t("auth.otpDebug", { code: contactDebug })}
+              </p>
+            )}
             <button
               type="button"
               className="w-full text-sm text-accent-600 hover:underline"

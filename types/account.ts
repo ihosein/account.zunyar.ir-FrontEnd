@@ -35,6 +35,7 @@ export interface EducationHistory {
   educationDetail?: string;
   institutionType?: string;
   fieldGroup?: string;
+  specialization?: string;
   startYear: number;
   endYear?: number | null;
   currentlyStudying: boolean;
@@ -146,6 +147,36 @@ export interface Colleague {
   role: string;
   /** Relationship direction from the current user's perspective. */
   relation: "manager" | "employee";
+  /** Public resume slug if available. */
+  resumeSlug?: string;
+}
+
+export type TicketCategory =
+  | "ACCOUNT"
+  | "TECHNICAL"
+  | "FINANCE"
+  | "COLLEAGUE"
+  | "OTHER";
+
+export type TicketRecipient = "MANAGER" | "FINANCE" | "TECHNICAL";
+
+export type TicketStatus = "OPEN" | "IN_PROGRESS" | "ANSWERED" | "CLOSED";
+
+export interface SupportTicket {
+  id: number;
+  subject: string;
+  /** Legacy; new tickets use recipient instead. */
+  category?: TicketCategory | null;
+  recipient?: TicketRecipient | null;
+  panelId?: number | null;
+  panelName?: string | null;
+  body: string;
+  status: TicketStatus;
+  relatedName?: string | null;
+  relatedId?: string | null;
+  images?: string[];
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface AppOption {

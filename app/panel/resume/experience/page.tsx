@@ -6,8 +6,9 @@ import { CertificateUpload } from "@/components/ui/CertificateUpload";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { GlassDialog } from "@/components/ui/GlassDialog";
 import { GlassSelect } from "@/components/ui/GlassSelect";
+import { ZyCheckbox } from "@/components/ui/ZyCheckbox";
 import { api } from "@/lib/api";
-import { t } from "@/lib/i18n";
+import { t, faNum } from "@/lib/i18n";
 import { dialogPrimaryBtnClass, fieldInputClass, fieldLabelClass, isBlank } from "@/lib/ui";
 import { toast } from "@/lib/toast";
 import type { WorkExperience } from "@/types/account";
@@ -25,8 +26,8 @@ type Form = {
   title: string;
   employmentType: string;
   location: string;
-  startDate: string;
-  endDate: string;
+  startYear: string;
+  endYear: string;
   currentlyWorking: boolean;
   description: string;
   certificateUrl?: string;
@@ -37,8 +38,8 @@ const EMPTY: Form = {
   title: "",
   employmentType: "FULL_TIME",
   location: "",
-  startDate: "",
-  endDate: "",
+  startYear: "",
+  endYear: "",
   currentlyWorking: false,
   description: "",
   certificateUrl: undefined,
@@ -46,6 +47,18 @@ const EMPTY: Form = {
 
 function empLabel(code: string) {
   return t(EMP.find((e) => e.value === code)?.labelKey ?? "panel.empFullTime");
+}
+
+/** Extract 4-digit year from ISO date or bare year string. */
+function yearFromDate(value?: string | null): string {
+  if (!value) return "";
+  const m = String(value).match(/(\d{4})/);
+  return m?.[1] ?? "";
+}
+
+/** Backend still stores LocalDate — encode year as YYYY-01-01. */
+function yearToDate(year: string): string {
+  return `${year}-01-01`;
 }
 
 export default function ResumeExperiencePage() {
@@ -56,6 +69,8 @@ export default function ResumeExperiencePage() {
   const [form, setForm] = useState<Form>(EMPTY);
   const [busy, setBusy] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  const endYearRequired = !form.currentlyWorking;
 
   async function load() {
     try {
@@ -84,8 +99,8 @@ export default function ResumeExperiencePage() {
       title: row.title,
       employmentType: row.employmentType,
       location: row.location || "",
-      startDate: row.startDate?.slice(0, 10) || "",
-      endDate: row.endDate?.slice(0, 10) || "",
+      startYear: yearFromDate(row.startDate),
+      endYear: yearFromDate(row.endDate),
       currentlyWorking: row.currentlyWorking,
       description: row.description || "",
       certificateUrl: row.certificateUrl || undefined,
@@ -95,6 +110,14 @@ export default function ResumeExperiencePage() {
 
   async function save(e: FormEvent) {
     e.preventDefault();
+    if (isBlank(form.startYear)) {
+      toast.error(t("panel.startYear"));
+      return;
+    }
+    if (endYearRequired && isBlank(form.endYear)) {
+      toast.error(t("panel.endYearRequiredWork"));
+      return;
+    }
     setBusy(true);
     try {
       const body = {
@@ -102,8 +125,8 @@ export default function ResumeExperiencePage() {
         title: form.title.trim(),
         employmentType: form.employmentType,
         location: form.location.trim() || undefined,
-        startDate: form.startDate,
-        endDate: form.currentlyWorking || !form.endDate ? null : form.endDate,
+        startDate: yearToDate(form.startYear),
+        endDate: form.currentlyWorking || !form.endYear ? null : yearToDate(form.endYear),
         currentlyWorking: form.currentlyWorking,
         description: form.description.trim() || undefined,
         certificateUrl: form.certificateUrl || undefined,
@@ -165,50 +188,72 @@ export default function ResumeExperiencePage() {
       )}
 
       <div className="mt-6 space-y-3">
-        {rows.map((row) => (
-          <div key={row.id} className="glass-card-static p-1">
-            <div className="glass-inner !m-2 flex flex-wrap items-start justify-between gap-3 !p-5">
-              <div className="min-w-0">
-                <p className="font-bold text-[var(--zy-ink)]">{row.title}</p>
-                <p className="mt-0.5 text-sm text-[var(--zy-muted)]">
-                  {row.companyName}
-                  {row.location ? ` · ${row.location}` : ""}
-                </p>
-                <p className="mt-1 text-xs text-accent-700 dark:text-accent-300">
-                  {empLabel(row.employmentType)}
-                </p>
-                <p className="mt-1 text-xs text-[var(--zy-muted)]" dir="ltr">
-                  {row.startDate?.slice(0, 7)} –{" "}
-                  {row.currentlyWorking ? t("panel.present") : row.endDate?.slice(0, 7) || ""}
-                </p>
-                {row.description && (
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--zy-ink)]/80">
-                    {row.description}
-                  </p>
-                )}
-                {row.certificateUrl && (
-                  <a
-                    href={row.certificateUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent-600 hover:underline"
-                  >
-                    <ExternalLink size={12} />
-                    {t("panel.viewFile")}
-                  </a>
-                )}
-              </div>
-              <div className="flex gap-1">
-                <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-2 text-accent-600 hover:bg-accent-500/10">
-                  <Pencil size={16} />
-                </button>
-                <button type="button" onClick={() => setDeleteId(row.id)} className="rounded-lg p-2 text-red-500 hover:bg-red-500/10">
-                  <Trash2 size={16} />
-                </button>
+        {rows.map((row) => {
+          const hasCert = Boolean(row.certificateUrl);
+          const yearsLabel = row.currentlyWorking
+            ? `از ${faNum(yearFromDate(row.startDate))} ${t("panel.present")}`
+            : `از ${faNum(yearFromDate(row.startDate))} تا ${faNum(yearFromDate(row.endDate))}`;
+          return (
+            <div key={row.id} className="glass-card-static p-1">
+              <div className="glass-inner !m-2 !p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="font-bold text-[var(--zy-ink)]">{row.title}</p>
+                    <p className="text-sm text-[var(--zy-muted)]">
+                      {row.companyName}
+                      {row.location ? ` · ${row.location}` : ""}
+                    </p>
+                    <p className="text-xs text-accent-700 dark:text-accent-300" dir="rtl">
+                      {empLabel(row.employmentType)}
+                      <span className="mx-1.5 text-[var(--zy-muted)]/45" aria-hidden>
+                        |
+                      </span>
+                      <span className="tabular-nums text-[var(--zy-muted)]">{yearsLabel}</span>
+                    </p>
+                    {row.description ? (
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--zy-ink)]/80">
+                        {row.description}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(row)}
+                        className="cursor-pointer rounded-lg p-2 text-accent-600 hover:bg-accent-500/10"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteId(row.id)}
+                        className="cursor-pointer rounded-lg p-2 text-red-500 hover:bg-red-500/10"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    {hasCert ? (
+                      <a
+                        href={row.certificateUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="zy-chip !border-emerald-500/30 !bg-emerald-500/10 !text-emerald-700 dark:!text-emerald-300"
+                      >
+                        <ExternalLink size={12} />
+                        {t("panel.certificateUploaded")}
+                      </a>
+                    ) : (
+                      <span className="zy-chip !border-red-500/30 !bg-red-500/10 !text-red-600 dark:!text-red-400">
+                        {t("panel.certificateMissing")}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <GlassDialog
@@ -257,41 +302,53 @@ export default function ResumeExperiencePage() {
               />
             </label>
             <label className="text-sm">
-              <span className={fieldLabelClass(isBlank(form.startDate))}>{t("panel.startDate")}</span>
+              <span className={fieldLabelClass(isBlank(form.startYear))}>{t("panel.startYear")}</span>
               <input
-                type="date"
-                className={fieldInputClass(isBlank(form.startDate))}
-                value={form.startDate}
-                onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+                className={fieldInputClass(isBlank(form.startYear))}
+                value={form.startYear}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    startYear: e.target.value.replace(/\D/g, "").slice(0, 4),
+                  }))
+                }
+                inputMode="numeric"
+                dir="ltr"
+                maxLength={4}
                 required
               />
             </label>
             <label className="text-sm">
-              <span className="text-[var(--zy-muted)]">{t("panel.endDate")}</span>
+              <span className={fieldLabelClass(endYearRequired && isBlank(form.endYear))}>
+                {t("panel.endYear")}
+              </span>
               <input
-                type="date"
-                className={fieldInputClass(false)}
-                value={form.endDate}
-                onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+                className={fieldInputClass(endYearRequired && isBlank(form.endYear))}
+                value={form.endYear}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    endYear: e.target.value.replace(/\D/g, "").slice(0, 4),
+                  }))
+                }
+                inputMode="numeric"
+                dir="ltr"
+                maxLength={4}
                 disabled={form.currentlyWorking}
               />
             </label>
           </div>
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm text-[var(--zy-ink)]">
-            <input
-              type="checkbox"
-              className="zy-checkbox"
-              checked={form.currentlyWorking}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  currentlyWorking: e.target.checked,
-                  endDate: e.target.checked ? "" : f.endDate,
-                }))
-              }
-            />
-            {t("panel.currentlyWorking")}
-          </label>
+          <ZyCheckbox
+            label={t("panel.currentlyWorking")}
+            checked={form.currentlyWorking}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                currentlyWorking: e.target.checked,
+                endYear: e.target.checked ? "" : f.endYear,
+              }))
+            }
+          />
           <label className="block text-sm">
             <span className="text-[var(--zy-muted)]">{t("panel.description")}</span>
             <textarea
@@ -306,7 +363,11 @@ export default function ResumeExperiencePage() {
             onChange={(url) => setForm((f) => ({ ...f, certificateUrl: url }))}
           />
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setOpen(false)} className="cursor-pointer rounded-xl px-4 py-2 text-sm">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="cursor-pointer rounded-xl px-4 py-2 text-sm"
+            >
               {t("common.cancel")}
             </button>
             <button type="submit" disabled={busy} className={dialogPrimaryBtnClass}>

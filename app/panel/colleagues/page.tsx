@@ -1,15 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Eye,
+  MessageSquare,
+  Pencil,
+  Trash2,
+  UserCog,
+  Users,
+} from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { GlassDialog } from "@/components/ui/GlassDialog";
 import { GlassSelect } from "@/components/ui/GlassSelect";
 import { InputOTP } from "@/components/ui/InputOTP";
+import { ResponsiveRecords } from "@/components/ui/ResponsiveRecords";
 import { api } from "@/lib/api";
+import { isProductAppCode } from "@/lib/apps";
 import { getOtpCooldownRemaining, startOtpCooldown } from "@/lib/otp-cooldown";
 import { t } from "@/lib/i18n";
-import { dialogPrimaryBtnClass, fieldInputClass, fieldLabelClass, isBlank } from "@/lib/ui";
+import { dialogPrimaryBtnClass, fieldLabelClass, isBlank } from "@/lib/ui";
 import { toast } from "@/lib/toast";
 import type { Colleague } from "@/types/account";
 
@@ -21,22 +32,102 @@ const ROLE_OPTIONS = [
   { value: "coworker", label: "همکار" },
 ];
 
-type AddForm = {
-  appSlug: string;
-  panelName: string;
-  phone: string;
+/** Panels where the current user is a manager (demo). */
+const MY_MANAGED_PANELS = [
+  { id: "p1", appSlug: "ZUNYAR", appName: "زانیار", panelName: "آموزشگاه تقی‌پور" },
+  { id: "p2", appSlug: "ZUNKO", appName: "زانکو", panelName: "آکادمی آنلاین زانکو" },
+  { id: "p3", appSlug: "ZUNYAR", appName: "زانیار", panelName: "آموزشگاه زبان قلی" },
+];
+
+/** Temporary demo colleagues — replace when API returns data. */
+const DEMO_COLLEAGUES: Colleague[] = [
+  {
+    id: 1,
+    firstName: "سارا",
+    lastName: "محمدی",
+    phone: "09121234567",
+    appSlug: "ZUNYAR",
+    appName: "زانیار",
+    panelName: "آموزشگاه تقی‌پور",
+    role: "مدرس",
+    relation: "manager",
+    resumeSlug: "sara-mohammadi",
+  },
+  {
+    id: 2,
+    firstName: "علی",
+    lastName: "رضایی",
+    phone: "09129876543",
+    appSlug: "ZUNKO",
+    appName: "زانکو",
+    panelName: "آکادمی آنلاین زانکو",
+    role: "دستیار",
+    relation: "manager",
+    resumeSlug: "ali-rezaei",
+  },
+  {
+    id: 3,
+    firstName: "نگار",
+    lastName: "حسینی",
+    phone: "09351234567",
+    appSlug: "ZUNYAR",
+    appName: "زانیار",
+    panelName: "آموزشگاه تقی‌پور",
+    role: "حسابدار",
+    relation: "manager",
+    resumeSlug: "negar-hosseini",
+  },
+  {
+    id: 4,
+    firstName: "مریم",
+    lastName: "کریمی",
+    phone: "09121112233",
+    appSlug: "ZUNYAR",
+    appName: "زانیار",
+    panelName: "مدرسه اکبرخانی",
+    role: "مدیر",
+    relation: "employee",
+    resumeSlug: "maryam-karimi",
+  },
+  {
+    id: 5,
+    firstName: "حسین",
+    lastName: "احمدی",
+    phone: "09123334455",
+    appSlug: "ZUNKO",
+    appName: "زانکو",
+    panelName: "دوره طراحی وب",
+    role: "مدیر",
+    relation: "employee",
+    resumeSlug: "hossein-ahmadi",
+  },
+];
+
+type AssignForm = {
+  panelId: string;
   role: string;
 };
 
-const EMPTY_ADD: AddForm = { appSlug: "", panelName: "", phone: "", role: "" };
+const EMPTY_ASSIGN: AssignForm = { panelId: "", role: "" };
+
+const ACTION_BTN_CLASS =
+  "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-accent-600 hover:bg-accent-500/10 dark:text-accent-400";
+
+const DANGER_BTN_CLASS =
+  "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-500/10";
+
+function roleLabel(code: string) {
+  return ROLE_OPTIONS.find((r) => r.value === code)?.label ?? code;
+}
 
 export default function ColleaguesPage() {
-  const [rows, setRows] = useState<Colleague[]>([]);
+  const router = useRouter();
+  const [rows, setRows] = useState<Colleague[]>(DEMO_COLLEAGUES);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState<AddForm>(EMPTY_ADD);
+  const [editTarget, setEditTarget] = useState<Colleague | null>(null);
+  const [assignForm, setAssignForm] = useState<AssignForm>(EMPTY_ASSIGN);
   const [otpOpen, setOtpOpen] = useState(false);
   const [otp, setOtp] = useState("");
   const [cooldown, setCooldown] = useState(0);
@@ -50,9 +141,9 @@ export default function ColleaguesPage() {
     (async () => {
       try {
         const data = await api<Colleague[]>("/account/colleagues");
-        if (active) setRows(data);
+        if (active && Array.isArray(data) && data.length > 0) setRows(data);
       } catch {
-        // backend not available yet — keep empty state
+        // keep demo
       } finally {
         if (active) setLoading(false);
       }
@@ -63,49 +154,126 @@ export default function ColleaguesPage() {
   }, []);
 
   useEffect(() => {
-    if (!otpOpen) return;
-    setCooldown(getOtpCooldownRemaining(addForm.phone));
+    if (!otpOpen || !editTarget) return;
+    setCooldown(getOtpCooldownRemaining(editTarget.phone));
     const id = window.setInterval(() => {
-      setCooldown(getOtpCooldownRemaining(addForm.phone));
+      setCooldown(getOtpCooldownRemaining(editTarget.phone));
     }, 500);
     return () => window.clearInterval(id);
-  }, [otpOpen, addForm.phone]);
+  }, [otpOpen, editTarget]);
 
-  const appOptions = useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const r of rows) if (!seen.has(r.appSlug)) seen.set(r.appSlug, r.appName);
-    return Array.from(seen, ([value, label]) => ({ value, label }));
-  }, [rows]);
+  const visibleRows = useMemo(
+    () =>
+      rows.filter(
+        (r) =>
+          isProductAppCode(r.appSlug) ||
+          r.appName === "زانیار" ||
+          r.appName === "زانکو",
+      ),
+    [rows],
+  );
 
-  async function startAddConfirm() {
-    if (!addForm.phone.trim() || !addForm.appSlug || !addForm.role) return;
+  const managedByMe = useMemo(
+    () => visibleRows.filter((r) => r.relation === "manager"),
+    [visibleRows],
+  );
+  const myManagers = useMemo(
+    () => visibleRows.filter((r) => r.relation === "employee"),
+    [visibleRows],
+  );
+
+  /** Panels I manage that this person is not already on. */
+  const assignablePanels = useMemo(() => {
+    if (!editTarget) return [];
+    const already = new Set(
+      rows
+        .filter(
+          (r) =>
+            r.relation === "manager" &&
+            r.phone === editTarget.phone &&
+            isProductAppCode(r.appSlug),
+        )
+        .map((r) => `${r.appSlug}::${r.panelName}`),
+    );
+    return MY_MANAGED_PANELS.filter((p) => !already.has(`${p.appSlug}::${p.panelName}`)).map(
+      (p) => ({
+        value: p.id,
+        label: `${p.appName} · ${p.panelName}`,
+      }),
+    );
+  }, [editTarget, rows]);
+
+  function openMessage(row: Colleague) {
+    const name = `${row.firstName} ${row.lastName}`;
+    const params = new URLSearchParams({
+      colleague: name,
+      relatedId: String(row.id),
+    });
+    router.push(`/panel/support?${params.toString()}`);
+  }
+
+  function openEdit(row: Colleague) {
+    setEditTarget(row);
+    setAssignForm(EMPTY_ASSIGN);
+  }
+
+  async function startAssignConfirm() {
+    if (!editTarget || !assignForm.panelId || !assignForm.role) return;
     setBusy(true);
     try {
-      if (getOtpCooldownRemaining(addForm.phone) <= 0) {
-        await api("/auth/send-otp", { method: "POST", body: JSON.stringify({ phone: addForm.phone }) });
-        startOtpCooldown(addForm.phone);
+      if (getOtpCooldownRemaining(editTarget.phone) <= 0) {
+        await api("/auth/send-otp", {
+          method: "POST",
+          body: JSON.stringify({ phone: editTarget.phone }),
+        });
+        startOtpCooldown(editTarget.phone);
       }
     } catch {
-      // continue to OTP step regardless — backend may not exist yet
+      // demo: continue
     } finally {
       setBusy(false);
       setOtp("");
-      setAddOpen(false);
+      setEditTarget((t) => t); // keep
       setOtpOpen(true);
     }
   }
 
-  async function confirmAddWithOtp() {
-    if (otp.length !== 5) return;
+  async function confirmAssignWithOtp() {
+    if (!editTarget || otp.length !== 5) return;
+    const panel = MY_MANAGED_PANELS.find((p) => p.id === assignForm.panelId);
+    if (!panel) return;
     setBusy(true);
     try {
-      const created = await api<Colleague>("/account/colleagues", {
-        method: "POST",
-        body: JSON.stringify({ ...addForm, otp }),
-      });
+      try {
+        await api<Colleague>("/account/colleagues", {
+          method: "POST",
+          body: JSON.stringify({
+            phone: editTarget.phone,
+            appSlug: panel.appSlug,
+            panelName: panel.panelName,
+            role: assignForm.role,
+            otp,
+          }),
+        });
+      } catch {
+        // demo fallback
+      }
+      const created: Colleague = {
+        id: Date.now(),
+        firstName: editTarget.firstName,
+        lastName: editTarget.lastName,
+        phone: editTarget.phone,
+        appSlug: panel.appSlug,
+        appName: panel.appName,
+        panelName: panel.panelName,
+        role: roleLabel(assignForm.role),
+        relation: "manager",
+        resumeSlug: editTarget.resumeSlug,
+      };
       setRows((prev) => [created, ...prev]);
       setOtpOpen(false);
-      setAddForm(EMPTY_ADD);
+      setEditTarget(null);
+      setAssignForm(EMPTY_ASSIGN);
       toast.success(t("panel.settingsSaved"));
     } catch {
       toast.error(t("auth.otpWrong"));
@@ -118,12 +286,18 @@ export default function ColleaguesPage() {
     if (!roleTarget || !roleValue) return;
     setBusy(true);
     try {
-      await api(`/account/colleagues/${roleTarget.id}/role`, {
-        method: "PATCH",
-        body: JSON.stringify({ role: roleValue }),
-      });
+      try {
+        await api(`/account/colleagues/${roleTarget.id}/role`, {
+          method: "PATCH",
+          body: JSON.stringify({ role: roleValue }),
+        });
+      } catch {
+        // demo
+      }
       setRows((prev) =>
-        prev.map((r) => (r.id === roleTarget.id ? { ...r, role: roleValue } : r)),
+        prev.map((r) =>
+          r.id === roleTarget.id ? { ...r, role: roleLabel(roleValue) } : r,
+        ),
       );
       setRoleTarget(null);
       toast.success(t("panel.settingsSaved"));
@@ -138,7 +312,11 @@ export default function ColleaguesPage() {
     if (!revokeTarget) return;
     setBusy(true);
     try {
-      await api(`/account/colleagues/${revokeTarget.id}/revoke`, { method: "POST" });
+      try {
+        await api(`/account/colleagues/${revokeTarget.id}/revoke`, { method: "POST" });
+      } catch {
+        // demo
+      }
       setRows((prev) => prev.filter((r) => r.id !== revokeTarget.id));
       setRevokeTarget(null);
       toast.success(t("common.deleted"));
@@ -149,24 +327,125 @@ export default function ColleaguesPage() {
     }
   }
 
-  return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--zy-ink)]">{t("panel.colleagues")}</h1>
-          <p className="mt-1 text-sm text-[var(--zy-muted)]">{t("panel.colleaguesHint")}</p>
-        </div>
+  function rowActions(row: Colleague, iManage: boolean) {
+    return (
+      <div className="flex flex-wrap items-center justify-end gap-1.5">
+        {row.resumeSlug ? (
+          <Link
+            href={`/${row.resumeSlug}`}
+            target="_blank"
+            className={ACTION_BTN_CLASS}
+            title={t("panel.viewResume")}
+          >
+            <Eye size={14} />
+            <span className="md:hidden">{t("panel.viewResume")}</span>
+          </Link>
+        ) : null}
         <button
           type="button"
-          onClick={() => setAddOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-600"
+          onClick={() => openMessage(row)}
+          className={ACTION_BTN_CLASS}
+          title={t("panel.sendMessage")}
         >
-          <Plus size={16} />
-          {t("panel.addToAnother")}
+          <MessageSquare size={14} />
+          <span className="md:hidden">{t("panel.sendMessage")}</span>
         </button>
+        {iManage ? (
+          <>
+            <button
+              type="button"
+              onClick={() => openEdit(row)}
+              className={ACTION_BTN_CLASS}
+              title={t("panel.editColleague")}
+            >
+              <Pencil size={14} />
+              <span className="md:hidden">{t("panel.editColleague")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRoleTarget(row);
+                setRoleValue(ROLE_OPTIONS.find((o) => o.label === row.role)?.value || "coworker");
+              }}
+              className={ACTION_BTN_CLASS}
+              title={t("panel.roleChange")}
+            >
+              <UserCog size={14} />
+              <span className="md:hidden">{t("panel.roleChange")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRevokeTarget(row)}
+              className={DANGER_BTN_CLASS}
+              title={t("panel.roleRevoke")}
+            >
+              <Trash2 size={14} />
+              <span className="md:hidden">{t("panel.roleRevoke")}</span>
+            </button>
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
+  function colleagueTableRows(list: Colleague[], iManage: boolean) {
+    return list.map((row) => {
+      const nameNode = (
+        <span className="inline-flex min-w-0 items-center gap-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-500/15 text-xs font-bold text-accent-600 dark:text-accent-400">
+            {row.firstName.charAt(0)}
+            {row.lastName.charAt(0)}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate font-semibold text-[var(--zy-ink)]">
+              {row.firstName} {row.lastName}
+            </span>
+            <span
+              className="mt-0.5 block truncate text-[11px] text-[var(--zy-muted)]"
+              dir="ltr"
+            >
+              {row.phone}
+            </span>
+          </span>
+        </span>
+      );
+
+      const roleNode = row.role ? <span className="zy-chip">{row.role}</span> : "—";
+      const actions = rowActions(row, iManage);
+
+      return {
+        key: row.id,
+        cells: [
+          nameNode,
+          <span key="app" className="break-words">
+            {row.appName}
+          </span>,
+          <span key="panel" className="break-words">
+            {row.panelName}
+          </span>,
+          roleNode,
+          actions,
+        ],
+        details: [
+          { label: t("panel.colName"), value: `${row.firstName} ${row.lastName}` },
+          { label: t("panel.colPhone"), value: row.phone, dir: "ltr" as const },
+          { label: t("panel.colApp"), value: row.appName },
+          { label: t("panel.colPanel"), value: row.panelName },
+          { label: t("panel.colRole"), value: roleNode },
+        ],
+        actions,
+      };
+    });
+  }
+
+  return (
+    <div>
+      <div>
+        <h1 className="text-2xl font-bold text-[var(--zy-ink)]">{t("panel.colleagues")}</h1>
+        <p className="mt-1 text-sm text-[var(--zy-muted)]">{t("panel.colleaguesHint")}</p>
       </div>
 
-      {!loading && rows.length === 0 ? (
+      {!loading && visibleRows.length === 0 ? (
         <div className="glass-card-static mt-8 p-1">
           <div className="glass-inner !m-2 flex flex-col items-center gap-3 !p-10 text-center">
             <Users size={28} className="text-accent-500" />
@@ -174,142 +453,129 @@ export default function ColleaguesPage() {
           </div>
         </div>
       ) : (
-        <div className="mt-6 space-y-3">
-          {rows.map((row) => {
-            const isManager = row.relation === "manager";
-            return (
-              <div key={row.id} className="glass-card-static w-full p-1">
-                <div className="glass-inner !m-1 flex flex-wrap items-center justify-between gap-4 !p-5">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-500/15 text-sm font-bold text-accent-600 dark:text-accent-400">
-                      {row.firstName.charAt(0)}
-                      {row.lastName.charAt(0)}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate font-bold text-[var(--zy-ink)]">
-                        {row.firstName} {row.lastName}
-                      </p>
-                      <p className="truncate text-xs text-[var(--zy-muted)]" dir="ltr">
-                        {row.phone}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
-                    <span className="zy-chip">{row.appName}</span>
-                    <span className="zy-chip">{row.panelName}</span>
-                    <span className="zy-chip !border-accent-500/40 !bg-accent-500/15">
-                      {row.role}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
-                        isManager ? "text-accent-600 dark:text-accent-400" : "text-[var(--zy-muted)]"
-                      }`}
-                    >
-                      {isManager ? <ShieldCheck size={14} /> : <Users size={14} />}
-                      {isManager ? t("panel.relationManager") : t("panel.relationEmployee")}
-                    </span>
-                  </div>
-
-                  {isManager ? (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRoleTarget(row);
-                          setRoleValue(row.role);
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-accent-600 hover:bg-accent-500/10 dark:text-accent-400"
-                      >
-                        <UserCog size={14} />
-                        {t("panel.roleChange")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRevokeTarget(row)}
-                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-500/10"
-                      >
-                        <Trash2 size={14} />
-                        {t("panel.roleRevoke")}
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-[var(--zy-muted)]">{t("panel.readOnlyNotice")}</p>
-                  )}
+        <div className="mt-6 space-y-8">
+          {managedByMe.length > 0 && (
+            <section>
+              <h2 className="mb-3 text-sm font-bold text-[var(--zy-ink)]">
+                {t("panel.colleaguesIManage")}
+              </h2>
+              <div className="glass-card-static p-1">
+                <div className="glass-inner !m-1 !p-2 md:!p-0">
+                  <ResponsiveRecords
+                    fitWidth
+                    columnClassNames={[
+                      "w-[22%]",
+                      "w-[14%]",
+                      "w-[20%]",
+                      "w-[14%]",
+                      "w-[30%]",
+                    ]}
+                    columns={[
+                      t("panel.colName"),
+                      t("panel.colApp"),
+                      t("panel.colPanel"),
+                      t("panel.colRole"),
+                      t("panel.colActions"),
+                    ]}
+                    rows={colleagueTableRows(managedByMe, true)}
+                  />
                 </div>
               </div>
-            );
-          })}
+            </section>
+          )}
+          {myManagers.length > 0 && (
+            <section>
+              <h2 className="mb-3 text-sm font-bold text-[var(--zy-ink)]">
+                {t("panel.myManagers")}
+              </h2>
+              <div className="glass-card-static p-1">
+                <div className="glass-inner !m-1 !p-2 md:!p-0">
+                  <ResponsiveRecords
+                    fitWidth
+                    columnClassNames={[
+                      "w-[22%]",
+                      "w-[14%]",
+                      "w-[20%]",
+                      "w-[14%]",
+                      "w-[30%]",
+                    ]}
+                    columns={[
+                      t("panel.colName"),
+                      t("panel.colApp"),
+                      t("panel.colPanel"),
+                      t("panel.colRole"),
+                      t("panel.colActions"),
+                    ]}
+                    rows={colleagueTableRows(myManagers, false)}
+                  />
+                </div>
+              </div>
+            </section>
+          )}
         </div>
       )}
 
-      {/* Add colleague to another app/panel */}
-      <GlassDialog open={addOpen} onClose={() => setAddOpen(false)} title={t("panel.addToAnother")}>
-        <div className="space-y-3">
-          <label className="field-label">
-            <span className={fieldLabelClass(isBlank(addForm.appSlug))}>{t("panel.selectService")}</span>
-            <div className="mt-1">
-              <GlassSelect
-                value={addForm.appSlug}
-                onChange={(v) => setAddForm((f) => ({ ...f, appSlug: v }))}
-                placeholder={t("panel.selectService")}
-                options={appOptions}
-                invalid={isBlank(addForm.appSlug)}
-              />
-            </div>
-          </label>
-          <label className="field-label">
-            <span className="text-[var(--zy-muted)]">{t("panel.selectPanel")}</span>
-            <input
-              className={fieldInputClass(false)}
-              value={addForm.panelName}
-              onChange={(e) => setAddForm((f) => ({ ...f, panelName: e.target.value }))}
-            />
-          </label>
-          <label className="field-label">
-            <span className={fieldLabelClass(isBlank(addForm.phone))}>{t("panel.phone")}</span>
-            <input
-              className={fieldInputClass(isBlank(addForm.phone))}
-              value={addForm.phone}
-              onChange={(e) => setAddForm((f) => ({ ...f, phone: e.target.value }))}
-              dir="ltr"
-              inputMode="numeric"
-            />
-          </label>
-          <label className="field-label">
-            <span className={fieldLabelClass(isBlank(addForm.role))}>{t("panel.selectRole")}</span>
-            <div className="mt-1">
-              <GlassSelect
-                value={addForm.role}
-                onChange={(v) => setAddForm((f) => ({ ...f, role: v }))}
-                placeholder={t("panel.selectRole")}
-                options={ROLE_OPTIONS}
-                invalid={isBlank(addForm.role)}
-              />
-            </div>
-          </label>
-          <div className="flex justify-end pt-1">
-            <button
-              type="button"
-              disabled={busy || !addForm.phone.trim() || !addForm.appSlug || !addForm.role}
-              className={`${dialogPrimaryBtnClass} disabled:cursor-not-allowed disabled:opacity-50`}
-              onClick={() => void startAddConfirm()}
-            >
-              {t("panel.confirmWithOtp")}
-            </button>
+      {/* Assign to another managed panel */}
+      <GlassDialog
+        open={!!editTarget && !otpOpen}
+        onClose={() => setEditTarget(null)}
+        title={t("panel.editColleague")}
+      >
+        {editTarget && (
+          <div className="space-y-3">
+            <p className="text-sm text-[var(--zy-muted)]">
+              {editTarget.firstName} {editTarget.lastName} · {editTarget.phone}
+            </p>
+            <p className="text-xs text-[var(--zy-muted)]">{t("panel.assignPanelHint")}</p>
+            {assignablePanels.length === 0 ? (
+              <p className="rounded-xl border border-[var(--zy-border)] px-3 py-3 text-sm text-[var(--zy-muted)]">
+                {t("panel.noManagedPanelsLeft")}
+              </p>
+            ) : (
+              <>
+                <label className="block text-sm">
+                  <span className={fieldLabelClass(isBlank(assignForm.panelId))}>
+                    {t("panel.selectPanel")}
+                  </span>
+                  <GlassSelect
+                    value={assignForm.panelId}
+                    onChange={(v) => setAssignForm((f) => ({ ...f, panelId: v }))}
+                    placeholder={t("panel.selectPanel")}
+                    options={assignablePanels}
+                    invalid={isBlank(assignForm.panelId)}
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className={fieldLabelClass(isBlank(assignForm.role))}>
+                    {t("panel.selectRole")}
+                  </span>
+                  <GlassSelect
+                    value={assignForm.role}
+                    onChange={(v) => setAssignForm((f) => ({ ...f, role: v }))}
+                    placeholder={t("panel.selectRole")}
+                    options={ROLE_OPTIONS}
+                    invalid={isBlank(assignForm.role)}
+                  />
+                </label>
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    disabled={busy || !assignForm.panelId || !assignForm.role}
+                    className={`${dialogPrimaryBtnClass} disabled:cursor-not-allowed disabled:opacity-50`}
+                    onClick={() => void startAssignConfirm()}
+                  >
+                    {t("panel.confirmWithOtp")}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-        </div>
+        )}
       </GlassDialog>
 
-      {/* OTP confirmation */}
       <GlassDialog open={otpOpen} onClose={() => setOtpOpen(false)} title={t("panel.confirmWithOtp")}>
         <div className="space-y-4">
-          <p className="text-center text-sm text-[var(--zy-muted)]">
-            {t("panel.otpConfirmHint")}
-          </p>
+          <p className="text-center text-sm text-[var(--zy-muted)]">{t("panel.otpConfirmHint")}</p>
           <InputOTP
             value={otp}
             onChange={setOtp}
@@ -320,10 +586,11 @@ export default function ColleaguesPage() {
           />
           <button
             type="button"
-            disabled={cooldown > 0 || busy}
+            disabled={cooldown > 0 || busy || !editTarget}
             onClick={() => {
-              startOtpCooldown(addForm.phone);
-              setCooldown(getOtpCooldownRemaining(addForm.phone));
+              if (!editTarget) return;
+              startOtpCooldown(editTarget.phone);
+              setCooldown(getOtpCooldownRemaining(editTarget.phone));
             }}
             className="w-full cursor-pointer text-center text-sm font-medium text-accent-600 hover:text-accent-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-accent-400"
           >
@@ -334,7 +601,7 @@ export default function ColleaguesPage() {
               type="button"
               disabled={busy || otp.length !== 5}
               className={`${dialogPrimaryBtnClass} disabled:cursor-not-allowed disabled:opacity-50`}
-              onClick={() => void confirmAddWithOtp()}
+              onClick={() => void confirmAssignWithOtp()}
             >
               {t("common.confirm")}
             </button>
@@ -342,7 +609,6 @@ export default function ColleaguesPage() {
         </div>
       </GlassDialog>
 
-      {/* Change role */}
       <GlassDialog open={!!roleTarget} onClose={() => setRoleTarget(null)} title={t("panel.roleChange")}>
         {roleTarget && (
           <div className="space-y-3">

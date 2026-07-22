@@ -15,9 +15,9 @@ import type { AuthResponse, User } from "@/types/account";
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (phone: string, password: string) => Promise<void>;
-  loginWithOtp: (phone: string, otp: string) => Promise<void>;
-  registerWithOtp: (phone: string, otp: string) => Promise<void>;
+  login: (phone: string, password: string) => Promise<User>;
+  loginWithOtp: (phone: string, otp: string) => Promise<User>;
+  registerWithOtp: (phone: string, otp: string) => Promise<User>;
   checkPhone: (phone: string) => Promise<{ exists: boolean; phone: string }>;
   sendOtp: (phone: string) => Promise<{ phone: string; debugCode?: string }>;
   sendLoginOtp: (phone: string) => Promise<{ phone: string; debugCode?: string }>;
@@ -82,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     setToken(data.token);
     setUser(data.user);
+    return data.user;
   }, []);
 
   const loginWithOtp = useCallback(async (phone: string, otp: string) => {
@@ -91,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     setToken(data.token);
     setUser(data.user);
+    return data.user;
   }, []);
 
   const registerWithOtp = useCallback(async (phone: string, otp: string) => {
@@ -100,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     setToken(data.token);
     setUser(data.user);
+    return data.user;
   }, []);
 
   const logout = useCallback(() => {

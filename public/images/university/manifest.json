@@ -1,0 +1,254 @@
+{
+  "azad": {
+    "file": "azad.jpg",
+    "label": "دانشگاه آزاد اسلامی"
+  },
+  "payame_noor": {
+    "file": "payame_noor.jpg",
+    "label": "دانشگاه پیام نور"
+  },
+  "applied_science": {
+    "file": "applied_science.svg",
+    "label": "دانشگاه جامع علمی کاربردی"
+  },
+  "tehran": {
+    "file": "tehran.svg",
+    "label": "دانشگاه تهران"
+  },
+  "sharif": {
+    "file": "sharif.png",
+    "label": "دانشگاه صنعتی شریف"
+  },
+  "amirkabir": {
+    "file": "amirkabir.png",
+    "label": "دانشگاه صنعتی امیرکبیر"
+  },
+  "iust": {
+    "file": "iust.jpg",
+    "label": "دانشگاه علم و صنعت ایران"
+  },
+  "tarbiat_modares": {
+    "file": "tarbiat_modares.png",
+    "label": "دانشگاه تربیت مدرس"
+  },
+  "shahid_beheshti": {
+    "file": "shahid_beheshti.jpg",
+    "label": "دانشگاه شهید بهشتی"
+  },
+  "allameh": {
+    "file": "allameh.png",
+    "label": "دانشگاه علامه طباطبائی"
+  },
+  "khaje_nasir": {
+    "file": "khaje_nasir.png",
+    "label": "دانشگاه خواجه نصیرالدین طوسی"
+  },
+  "isfahan": {
+    "file": "isfahan.png",
+    "label": "دانشگاه اصفهان"
+  },
+  "shiraz": {
+    "file": "shiraz.jpg",
+    "label": "دانشگاه شیراز"
+  },
+  "ferdowsi": {
+    "file": "ferdowsi.svg",
+    "label": "دانشگاه فردوسی مشهد"
+  },
+  "tabriz": {
+    "file": "tabriz.svg",
+    "label": "دانشگاه تبریز"
+  },
+  "guilan": {
+    "file": "guilan.png",
+    "label": "دانشگاه گیلان"
+  },
+  "razi": {
+    "file": "razi.png",
+    "label": "دانشگاه رازی"
+  },
+  "bu_ali_sina": {
+    "file": "bu_ali_sina.svg",
+    "label": "دانشگاه بوعلی سینا"
+  },
+  "urmia": {
+    "file": "urmia.svg",
+    "label": "دانشگاه ارومیه"
+  },
+  "yazd": {
+    "file": "yazd.jpg",
+    "label": "دانشگاه یزد"
+  },
+  "kashan": {
+    "file": "kashan.jpg",
+    "label": "دانشگاه کاشان"
+  },
+  "zanjan": {
+    "file": "zanjan.svg",
+    "label": "دانشگاه زنجان"
+  },
+  "semnan": {
+    "file": "semnan.png",
+    "label": "دانشگاه سمنان"
+  },
+  "alzahra": {
+    "file": "alzahra.svg",
+    "label": "دانشگاه الزهرا"
+  },
+  "kharazmi": {
+    "file": "kharazmi.jpg",
+    "label": "دانشگاه خوارزمی"
+  },
+  "industry_petroleum": {
+    "file": "industry_petroleum.jpg",
+    "label": "دانشگاه صنعت نفت"
+  },
+  "sahand": {
+    "file": "sahand.png",
+    "label": "دانشگاه صنعتی سهند"
+  },
+  "babol_noshirvani": {
+    "file": "babol_noshirvani.png",
+    "label": "دانشگاه صنعتی نوشیروانی بابل"
+  },
+  "shahrood_tech": {
+    "file": "shahrood_tech.svg",
+    "label": "دانشگاه صنعتی شاهرود"
+  },
+  "isfahan_tech": {
+    "file": "isfahan_tech.svg",
+    "label": "دانشگاه صنعتی اصفهان"
+  },
+  "malek_ashtar": {
+    "file": "malek_ashtar.png",
+    "label": "دانشگاه صنعتی مالک اشتر"
+  },
+  "shahid_bahonar": {
+    "file": "shahid_bahonar.png",
+    "label": "دانشگاه شهید باهنر کرمان"
+  },
+  "kurdistan": {
+    "file": "kurdistan.png",
+    "label": "دانشگاه کردستان"
+  },
+  "lorestan": {
+    "file": "lorestan.png",
+    "label": "دانشگاه لرستان"
+  },
+  "mazandaran": {
+    "file": "mazandaran.jpg",
+    "label": "دانشگاه مازندران"
+  },
+  "sistan": {
+    "file": "sistan.jpg",
+    "label": "دانشگاه سیستان و بلوچستان"
+  },
+  "hormozgan": {
+    "file": "hormozgan.svg",
+    "label": "دانشگاه هرمزگان"
+  },
+  "bushehr": {
+    "file": "bushehr.png",
+    "label": "دانشگاه خلیج فارس بوشهر"
+  },
+  "qom": {
+    "file": "qom.png",
+    "label": "دانشگاه قم"
+  },
+  "qazvin": {
+    "file": "qazvin.png",
+    "label": "دانشگاه بین‌المللی امام خمینی"
+  },
+  "arak": {
+    "file": "arak.svg",
+    "label": "دانشگاه اراک"
+  },
+  "ilam": {
+    "file": "ilam.jpg",
+    "label": "دانشگاه ایلام"
+  },
+  "yasouj": {
+    "file": "yasouj.svg",
+    "label": "دانشگاه یاسوج"
+  },
+  "jahrom": {
+    "file": "jahrom.jpg",
+    "label": "دانشگاه جهرم"
+  },
+  "gonbad": {
+    "file": "gonbad.png",
+    "label": "دانشگاه گنبد کاووس"
+  },
+  "kazerun_salman": {
+    "file": "kazerun_salman.jpg",
+    "label": "دانشگاه سلمان فارسی کازرون"
+  },
+  "madani_azar": {
+    "file": "madani_azar.png",
+    "label": "دانشگاه شهید مدنی آذربایجان"
+  },
+  "hakim_sabzevari": {
+    "file": "hakim_sabzevari.png",
+    "label": "دانشگاه حکیم سبزواری"
+  },
+  "birjand": {
+    "file": "birjand.svg",
+    "label": "دانشگاه بیرجند"
+  },
+  "valiasr_rafsanjan": {
+    "file": "valiasr_rafsanjan.svg",
+    "label": "دانشگاه ولی‌عصر رفسنجان"
+  },
+  "persian_gulf": {
+    "file": "persian_gulf.png",
+    "label": "دانشگاه خلیج فارس"
+  },
+  "maragheh": {
+    "file": "maragheh.svg",
+    "label": "دانشگاه مراغه"
+  },
+  "damghan": {
+    "file": "damghan.svg",
+    "label": "دانشگاه دامغان"
+  },
+  "iasbs": {
+    "file": "iasbs.jpg",
+    "label": "پژوهشگاه تحصیلات تکمیلی علوم پایه زنجان"
+  },
+  "shahid_chamran": {
+    "file": "shahid_chamran.png",
+    "label": "دانشگاه شهید چمران اهواز"
+  },
+  "shahrekord": {
+    "file": "shahrekord.svg",
+    "label": "دانشگاه شهرکرد"
+  },
+  "zabol": {
+    "file": "zabol.jpg",
+    "label": "دانشگاه زابل"
+  },
+  "bojnord": {
+    "file": "bojnord.jpg",
+    "label": "دانشگاه بجنورد"
+  },
+  "malayer": {
+    "file": "malayer.jpg",
+    "label": "دانشگاه ملایر"
+  },
+  "golestan": {
+    "file": "golestan.png",
+    "label": "دانشگاه گلستان"
+  },
+  "farhangian": {
+    "file": "farhangian.svg",
+    "label": "دانشگاه فرهنگیان"
+  },
+  "art_uni": {
+    "file": "art_uni.svg",
+    "label": "دانشگاه هنر"
+  },
+  "iribu": {
+    "file": "iribu.jpg",
+    "label": "دانشگاه صدا و سیما"
+  }
+}

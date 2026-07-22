@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { isProfileComplete, PROFILE_PATH } from "@/lib/profile-gate";
 import { t } from "@/lib/i18n";
 
 export default function RootPage() {
@@ -11,7 +12,11 @@ export default function RootPage() {
 
   useEffect(() => {
     if (loading) return;
-    router.replace(user ? "/panel/profile" : "/login");
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    router.replace(isProfileComplete(user) ? "/panel/apps" : PROFILE_PATH);
   }, [loading, user, router]);
 
   return (

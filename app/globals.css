@@ -545,17 +545,17 @@ body {
   user-select: none;
 }
 
-/* Themed checkbox */
+/* Themed checkbox — muted when off; accent fill when on (check icon via ZyCheckbox) */
 .zy-checkbox {
   appearance: none;
   -webkit-appearance: none;
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 1.15rem;
+  height: 1.15rem;
   margin: 0;
   flex-shrink: 0;
   border-radius: 0.35rem;
-  border: 1.5px solid rgba(13, 148, 136, 0.55);
-  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid rgba(91, 100, 112, 0.55);
+  background: rgba(255, 255, 255, 0.92);
   vertical-align: middle;
   cursor: pointer;
   transition:
@@ -572,10 +572,7 @@ body {
 .zy-checkbox:checked {
   border-color: var(--zy-primary);
   background-color: var(--zy-primary);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E");
-  background-size: 0.75rem 0.75rem;
-  background-position: center;
-  background-repeat: no-repeat;
+  background-image: none;
 }
 
 .zy-checkbox:focus-visible {
@@ -584,11 +581,12 @@ body {
 }
 
 .dark .zy-checkbox {
-  border-color: rgba(20, 184, 166, 0.5);
-  background: rgba(22, 26, 34, 0.85);
+  border-color: rgba(146, 156, 171, 0.55);
+  background: rgba(22, 26, 34, 0.92);
 }
 
 .dark .zy-checkbox:checked {
+  border-color: var(--zy-primary);
   background-color: var(--zy-primary);
 }
 
@@ -611,6 +609,18 @@ body {
 .zy-glass-select__check {
   flex-shrink: 0;
   color: var(--zy-primary);
+}
+
+.zy-glass-select__logo {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 1.375rem;
+  height: 1.375rem;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 0.25rem;
+  background: rgba(255, 255, 255, 0.65);
 }
 
 .zy-glass-select__option:hover {
@@ -655,6 +665,62 @@ body {
   font-weight: 600;
   color: var(--zy-ink);
   backdrop-filter: blur(8px);
+}
+
+/* Themed hover tip for status chips (and similar) */
+.zy-tip {
+  position: relative;
+  display: inline-flex;
+}
+
+.zy-tip__bubble {
+  position: absolute;
+  bottom: calc(100% + 0.45rem);
+  inset-inline-start: 50%;
+  z-index: 40;
+  width: max-content;
+  max-width: min(16rem, 70vw);
+  transform: translateX(-50%);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(13, 148, 136, 0.4);
+  background: rgba(255, 255, 255, 0.94);
+  padding: 0.5rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--zy-ink);
+  text-align: start;
+  white-space: normal;
+  box-shadow:
+    0 14px 32px -12px rgba(15, 23, 32, 0.28),
+    0 0 0 1px rgba(13, 148, 136, 0.06);
+  backdrop-filter: blur(14px) saturate(1.25);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease,
+    transform 0.15s ease;
+}
+
+.dark .zy-tip__bubble {
+  background: rgba(16, 19, 25, 0.94);
+  border-color: rgba(20, 184, 166, 0.35);
+  box-shadow:
+    0 14px 32px -10px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(20, 184, 166, 0.1);
+}
+
+html[dir="rtl"] .zy-tip__bubble {
+  transform: translateX(50%);
+}
+
+.zy-tip:hover .zy-tip__bubble,
+.zy-tip:focus-within .zy-tip__bubble {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* IMPORTANT: never animate `transform`/`filter` on `.zy-toast`.
@@ -805,4 +871,278 @@ body {
     0 14px 44px -6px rgba(245, 158, 11, 0.45),
     0 10px 28px -12px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* —— Jalali date picker (react-multi-date-picker) —— */
+.zy-date-container {
+  width: 100%;
+}
+
+.zy-date.rmdp-wrapper,
+.zy-date .rmdp-wrapper {
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.zy-date .rmdp-ep-arrow,
+.zy-date .rmdp-ep-arrow::after {
+  display: none !important;
+}
+
+/* Glass shell only — do NOT touch internal positioning of days/overlays */
+.zy-date .rmdp-calendar {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(13, 148, 136, 0.34) !important;
+  border-radius: 0.85rem !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16) inset,
+    0 8px 22px -14px rgba(15, 23, 32, 0.14) !important;
+  font-family: inherit !important;
+  padding: 0.5rem !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.15) !important;
+  backdrop-filter: blur(20px) saturate(1.15) !important;
+}
+
+.dark .zy-date .rmdp-calendar {
+  background-color: rgba(14, 17, 24, 0.28) !important;
+  border-color: rgba(20, 184, 166, 0.28) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 10px 26px -14px rgba(0, 0, 0, 0.36) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.12) !important;
+  backdrop-filter: blur(24px) saturate(1.12) !important;
+}
+
+/* Restore library day geometry (prevent collapsed/overlapping cells) */
+.zy-date .rmdp-week,
+.zy-date .rmdp-ym {
+  display: flex !important;
+  justify-content: space-between !important;
+}
+
+.zy-date .rmdp-day,
+.zy-date .rmdp-week-day {
+  position: relative !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.zy-date .rmdp-day span {
+  position: absolute !important;
+  inset: 3px !important;
+  top: 3px !important;
+  right: 3px !important;
+  bottom: 3px !important;
+  left: 3px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  border-radius: 0.55rem !important;
+  box-sizing: border-box !important;
+}
+
+.zy-date .rmdp-week-day {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--zy-muted) !important;
+  font-weight: 600;
+  cursor: default;
+}
+
+.zy-date .rmdp-header-values,
+.zy-date .rmdp-day span {
+  color: var(--zy-ink) !important;
+}
+
+.zy-date .rmdp-header-values {
+  white-space: nowrap;
+}
+
+.zy-date .rmdp-day {
+  cursor: pointer;
+  color: var(--zy-ink) !important;
+}
+
+.zy-date .rmdp-day.rmdp-today span {
+  border: 1.5px solid var(--zy-primary) !important;
+  background: transparent !important;
+  color: var(--zy-primary) !important;
+}
+
+.zy-date .rmdp-day.rmdp-selected span:not(.highlight) {
+  background: var(--zy-primary) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--zy-primary) 28%, transparent);
+  color: #fff !important;
+}
+
+.zy-date .rmdp-day:not(.rmdp-disabled):not(.rmdp-day-hidden) span:hover {
+  background: var(--zy-glow-soft) !important;
+  color: var(--zy-ink) !important;
+}
+
+.zy-date .rmdp-arrow {
+  border-color: var(--zy-muted) !important;
+}
+
+.zy-date .rmdp-arrow-container:hover {
+  background: var(--zy-glow-soft) !important;
+  box-shadow: none !important;
+}
+
+.zy-date .rmdp-day.rmdp-disabled span {
+  color: var(--zy-muted) !important;
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Month / year grid cells need flex grow like the library */
+.zy-date .rmdp-ym .rmdp-day {
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  margin: auto !important;
+}
+
+.zy-date .rmdp-ym .rmdp-day span {
+  border-radius: 0.55rem !important;
+  padding: 2px 0 !important;
+}
+
+.zy-date .rmdp-month-picker,
+.zy-date .rmdp-year-picker {
+  background-color: rgba(255, 255, 255, 0.88) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.1) !important;
+  backdrop-filter: blur(14px) saturate(1.1) !important;
+  border-radius: 0.65rem !important;
+  box-shadow: none !important;
+}
+
+.dark .zy-date .rmdp-month-picker,
+.dark .zy-date .rmdp-year-picker {
+  background-color: rgba(18, 22, 30, 0.94) !important;
+  border: 1px solid rgba(20, 184, 166, 0.22);
+}
+
+.dark .zy-date .rmdp-month-picker .rmdp-day span,
+.dark .zy-date .rmdp-year-picker .rmdp-day span,
+.dark .zy-date .rmdp-header-values {
+  color: #e8eef4 !important;
+}
+
+.zy-date .rmdp-month-picker .rmdp-day.rmdp-selected span:not(.highlight),
+.zy-date .rmdp-year-picker .rmdp-day.rmdp-selected span:not(.highlight) {
+  background: var(--zy-primary) !important;
+  color: #fff !important;
+}
+
+.dark .zy-date .rmdp-month-picker .rmdp-day:not(.rmdp-disabled) span:hover,
+.dark .zy-date .rmdp-year-picker .rmdp-day:not(.rmdp-disabled) span:hover {
+  background: rgba(20, 184, 166, 0.18) !important;
+  color: #f4f7fa !important;
+}
+
+.rmdp-container,
+.rmdp-calendar-container-mobile,
+.rmdp-portal {
+  z-index: 700 !important;
+}
+
+/* —— Page loader: grayscale → color (RTL fill) —— */
+.zy-page-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--zy-page) 55%, transparent);
+  backdrop-filter: blur(10px) saturate(1.15);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+}
+
+.zy-page-loader__mark {
+  position: relative;
+  width: min(8.5rem, 48vw);
+  height: min(8.5rem, 48vw);
+  aspect-ratio: 1 / 1;
+}
+
+.zy-page-loader__layer {
+  position: absolute !important;
+  inset: 0;
+  margin: auto;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain !important;
+  object-position: center !important;
+  aspect-ratio: 1 / 1;
+}
+
+.zy-page-loader__layer--gray {
+  /* Mute only — do not invert/brightness that would wash orange to white */
+  filter: grayscale(1) opacity(0.45);
+}
+
+.zy-page-loader__layer--color {
+  /* Must stay unfiltered so brand orange (#f86000) shows in the colored end state */
+  filter: none !important;
+  /* RTL: color washes in from right → left (mask only; no fill override) */
+  -webkit-mask-image: linear-gradient(to left, #000 40%, transparent 60%);
+  mask-image: linear-gradient(to left, #000 40%, transparent 60%);
+  -webkit-mask-size: 220% 100%;
+  mask-size: 220% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: zy-logo-color-fill 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes zy-logo-color-fill {
+  /* Start grayscale (color masked away), then wash color in */
+  from {
+    -webkit-mask-position: 0% 0;
+    mask-position: 0% 0;
+  }
+  to {
+    -webkit-mask-position: 100% 0;
+    mask-position: 100% 0;
+  }
+}
+
+@media print {
+  .print\:hidden,
+  .theme-toggle,
+  .theme-toggle-floating {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  .zy-resume-public {
+    background: #fff !important;
+    color: #111 !important;
+    padding: 0 !important;
+  }
+
+  .zy-resume-public .glass-card-static,
+  .zy-resume-public .glass-inner {
+    background: #fff !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 }

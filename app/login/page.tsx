@@ -3,10 +3,12 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ShieldCheck } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { InputOTP } from "@/components/ui/InputOTP";
 import { useAuth } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { getOtpCooldownRemaining, startOtpCooldown } from "@/lib/otp-cooldown";
+import { isProfileComplete, PROFILE_PATH } from "@/lib/profile-gate";
 import { dialogPrimaryBtnClass, fieldInputClass, fieldLabelClass, isBlank } from "@/lib/ui";
 import { toast } from "@/lib/toast";
 
@@ -26,6 +28,7 @@ export default function LoginPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
+  const [debugOtp, setDebugOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const submittingOtp = useRef(false);
@@ -65,13 +68,15 @@ export default function LoginPage() {
       setPhone(res.phone || normalized);
       setPassword("");
       setOtp("");
+      setDebugOtp("");
       lastTriedOtp.current = "";
       if (res.exists) {
         setStep("login");
       } else {
         const p = res.phone || normalized;
         if (getOtpCooldownRemaining(p) <= 0) {
-          await sendOtp(p);
+          const otpRes = await sendOtp(p);
+          setDebugOtp(otpRes.debugCode || "");
           markOtpSent(p);
         }
         setStep("register");
@@ -91,8 +96,8 @@ export default function LoginPage() {
     }
     setBusy(true);
     try {
-      await login(phone, password);
-      router.push("/panel/apps");
+      const u = await login(phone, password);
+      router.push(isProfileComplete(u) ? "/panel/apps" : PROFILE_PATH);
     } catch (err) {
       const msg = err instanceof Error ? err.message : t("auth.login.error");
       toast.error(/ایمیل/.test(msg) ? t("auth.login.badCredentials") : msg);
@@ -105,7 +110,8 @@ export default function LoginPage() {
     setBusy(true);
     try {
       if (getOtpCooldownRemaining(phone) <= 0) {
-        await sendLoginOtp(phone);
+        const otpRes = await sendLoginOtp(phone);
+        setDebugOtp(otpRes.debugCode || "");
         markOtpSent(phone);
       }
       setOtp("");
@@ -125,10 +131,10 @@ export default function LoginPage() {
     try {
       if (step === "register") {
         await registerWithOtp(phone, code);
-        router.push("/panel/profile");
+        router.push(PROFILE_PATH);
       } else {
-        await loginWithOtp(phone, code);
-        router.push("/panel/apps");
+        const u = await loginWithOtp(phone, code);
+        router.push(isProfileComplete(u) ? "/panel/apps" : PROFILE_PATH);
       }
     } catch {
       toast.error(t("auth.otpWrong"));
@@ -152,7 +158,8 @@ export default function LoginPage() {
     if (cooldown > 0 || busy) return;
     setBusy(true);
     try {
-      await (step === "loginOtp" ? sendLoginOtp(phone) : sendOtp(phone));
+      const otpRes = step === "loginOtp" ? await sendLoginOtp(phone) : await sendOtp(phone);
+      setDebugOtp(otpRes.debugCode || "");
       lastTriedOtp.current = "";
       setOtp("");
       markOtpSent(phone);
@@ -186,9 +193,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-500/15 text-2xl font-black text-accent-600 dark:text-accent-400">
-            {t("brand.initial")}
-          </span>
+          <BrandLogo height={48} priority className="mb-3" />
           <p className="text-sm font-bold text-[var(--zy-ink)]" dir="ltr">
             {t("brand.nameEn")}
           </p>
@@ -287,6 +292,12 @@ export default function LoginPage() {
                 disabled={busy}
                 invalid={otp.length < 5}
               />
+
+              {debugOtp && (
+                <p className="text-center text-xs text-accent-600 dark:text-accent-400" dir="ltr">
+                  {t("auth.otpDebug", { code: debugOtp })}
+                </p>
+              )}
 
               <button
                 type="button"
