@@ -192,11 +192,8 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <BrandLogo height={48} priority className="mb-3" />
-          <p className="text-sm font-bold text-[var(--zy-ink)]" dir="ltr">
-            {t("brand.nameEn")}
-          </p>
+        <div className="mb-4 flex flex-col items-center pt-6 text-center">
+          <BrandLogo variant="loader" height={100} priority className="mb-1.5" />
         </div>
 
         <h1 className="text-center text-2xl font-bold text-[var(--zy-ink)] md:text-3xl">

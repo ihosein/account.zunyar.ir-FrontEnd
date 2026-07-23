@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { AlertCircle } from "lucide-react";
 import { GlassDialog } from "@/components/ui/GlassDialog";
 import { GlassSelect } from "@/components/ui/GlassSelect";
 import { InputOTP } from "@/components/ui/InputOTP";
@@ -13,7 +14,7 @@ import { t } from "@/lib/i18n";
 import { citiesOfProvince, IRAN_PROVINCE_OPTIONS } from "@/lib/iran-locations";
 import { dialogPrimaryBtnClass, fieldInputClass, fieldLabelClass, isBlank } from "@/lib/ui";
 import { toast } from "@/lib/toast";
-import { isProfileComplete } from "@/lib/profile-gate";
+import { isProfileComplete, isValidNationalCode } from "@/lib/profile-gate";
 import type { AuthResponse } from "@/types/account";
 
 type FormState = {
@@ -110,11 +111,13 @@ export default function ProfilePage() {
     );
   }, [baseline, form]);
 
+  const nationalCode = form.nationalCode.trim();
+  const nationalCodeLengthError = nationalCode.length > 0 && !isValidNationalCode(nationalCode);
   const namesOk =
     form.firstName.trim().length > 0 &&
     form.lastName.trim().length > 0 &&
     form.fatherName.trim().length > 0 &&
-    form.nationalCode.trim().length > 0 &&
+    isValidNationalCode(nationalCode) &&
     form.gender.trim().length > 0;
   const passwordOk = passwordFieldsValid(form.password, form.passwordConfirm, needsPassword);
 
@@ -123,7 +126,8 @@ export default function ProfilePage() {
   const firstNameInvalid = showRequiredRed && isBlank(form.firstName);
   const lastNameInvalid = showRequiredRed && isBlank(form.lastName);
   const fatherNameInvalid = showRequiredRed && isBlank(form.fatherName);
-  const nationalCodeInvalid = showRequiredRed && isBlank(form.nationalCode);
+  const nationalCodeInvalid =
+    (showRequiredRed && isBlank(form.nationalCode)) || nationalCodeLengthError;
   const genderInvalid = showRequiredRed && isBlank(form.gender);
 
   const canSave = useMemo(() => {
@@ -295,6 +299,19 @@ export default function ProfilePage() {
       <h1 className="text-2xl font-bold text-[var(--zy-ink)]">{t("panel.personalInfo")}</h1>
       <p className="mt-1 text-sm text-[var(--zy-muted)]">{t("panel.personalHint")}</p>
 
+      {showRequiredRed ? (
+        <div
+          role="alert"
+          className="mt-4 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3.5 text-sm text-red-800 dark:text-red-200"
+        >
+          <AlertCircle
+            className="mt-0.5 h-5 w-5 shrink-0 text-red-500 dark:text-red-400"
+            aria-hidden
+          />
+          <p className="leading-relaxed">{t("panel.profileIncompleteAlert")}</p>
+        </div>
+      ) : null}
+
       <form onSubmit={submit} noValidate className="mt-6 space-y-6">
         <section className="glass-card-static p-1">
           <div className="glass-inner !m-2 space-y-5 !p-5">
@@ -346,7 +363,11 @@ export default function ProfilePage() {
                     inputMode="numeric"
                     dir="ltr"
                     maxLength={10}
+                    autoComplete="off"
                   />
+                  {nationalCodeLengthError ? (
+                    <p className="mt-1 text-xs text-red-600">{t("panel.nationalCodeLength")}</p>
+                  ) : null}
                 </label>
                 <label className="text-sm">
                   <span className={fieldLabelClass(genderInvalid)}>{t("panel.gender")}</span>

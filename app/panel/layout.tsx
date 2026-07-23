@@ -14,6 +14,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const { collapsed, toggle } = useSidebarCollapsed();
+  const profileIncomplete = !isProfileComplete(user);
 
   useEffect(() => {
     if (loading) return;
@@ -21,16 +22,16 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
       router.replace("/login");
       return;
     }
-    if (!isProfileComplete(user) && pathname !== PROFILE_PATH) {
+    if (profileIncomplete && pathname !== PROFILE_PATH) {
       router.replace(PROFILE_PATH);
     }
-  }, [loading, user, pathname, router]);
+  }, [loading, user, pathname, router, profileIncomplete]);
 
   if (loading || !user) {
     return <BrandLoader />;
   }
 
-  if (!isProfileComplete(user) && pathname !== PROFILE_PATH) {
+  if (profileIncomplete && pathname !== PROFILE_PATH) {
     return <BrandLoader />;
   }
 

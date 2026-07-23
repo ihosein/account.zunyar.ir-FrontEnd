@@ -14,8 +14,8 @@ export const ZUNYAR_LOGO = {
   faviconLight: "/images/ZunyarBlackFavicon.png",
   faviconDark: "/images/ZunyarWhiteFavicon.png",
   /** Square loader marks (orange accent preserved for grayscale→color wash) */
-  loaderLight: "/images/ZunyarLoaderBlack.png",
-  loaderDark: "/images/ZunyarLoaderWhite.png",
+  loaderLight: "/images/ZunyarLoaderBlack.ico",
+  loaderDark: "/images/ZunyarLoaderWhite.ico",
 } as const;
 
 type BrandLogoProps = {

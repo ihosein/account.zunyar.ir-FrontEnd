@@ -58,6 +58,8 @@
   },
   "panel": {
     "sendMessage": "Send message",
-    "colleaguePanels": "Panels & roles"
+    "colleaguePanels": "Panels & roles",
+    "profileIncompleteAlert": "Please complete the required personal information sections so the rest of your account features become active.",
+    "nationalCodeLength": "National code must be exactly 10 digits."
   }
 }
