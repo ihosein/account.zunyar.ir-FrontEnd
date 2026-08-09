@@ -20,6 +20,10 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Handshake,
+  ScrollText,
+  Headphones,
+  Shield,
 } from "lucide-react";
 import { SupportMenu } from "@/components/layout/SupportMenu";
 import { BrandLogo } from "@/components/brand/BrandLogo";
@@ -62,9 +66,20 @@ const RESUME_GROUP: NavGroup = {
 
 const NAV_SECONDARY: NavItem[] = [
   { href: "/panel/colleagues", labelKey: "panel.colleagues", icon: Users },
+  { href: "/panel/affiliate", labelKey: "panel.affiliate", icon: Handshake },
   { href: "/panel/finance", labelKey: "panel.finance", icon: Wallet },
   { href: "/panel/sessions", labelKey: "panel.sessions", icon: Radio },
 ];
+
+const ADMIN_GROUP: NavGroup = {
+  id: "admin",
+  labelKey: "admin.title",
+  icon: Shield,
+  children: [
+    { href: "/panel/admin/logs", labelKey: "admin.logs", icon: ScrollText },
+    { href: "/panel/admin/tickets", labelKey: "admin.tickets", icon: Headphones },
+  ],
+};
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -148,13 +163,65 @@ function NavLink({
   );
 }
 
+function CollapsibleNavGroup({
+  group,
+  pathname,
+  collapsed,
+  locked,
+}: {
+  group: NavGroup;
+  pathname: string;
+  collapsed: boolean;
+  locked: boolean;
+}) {
+  const groupActive = group.children.some((c) => isActive(pathname, c.href));
+  const [manualOpen, setManualOpen] = useState(groupActive);
+  const open = !collapsed && !locked && (manualOpen || groupActive);
+  const GroupIcon = group.icon;
+
+  return (
+    <div>
+      <button
+        type="button"
+        title={collapsed ? t(group.labelKey) : undefined}
+        disabled={locked}
+        onClick={() => {
+          if (collapsed || locked) return;
+          setManualOpen((v) => !v);
+        }}
+        className={clsx(
+          "flex w-full items-center gap-2.5 rounded-xl py-2.5 text-sm font-medium transition",
+          collapsed ? "justify-center px-2" : "px-3",
+          locked
+            ? "cursor-not-allowed opacity-40 text-[var(--zy-ink)]/70"
+            : groupActive
+              ? "cursor-pointer bg-accent-500/15 text-accent-800 dark:text-accent-200"
+              : "cursor-pointer text-[var(--zy-ink)]/85 hover:bg-accent-500/10",
+        )}
+      >
+        <GroupIcon size={18} className="text-accent-600 dark:text-accent-400" />
+        {!collapsed && (
+          <>
+            <span className="flex-1 text-start">{t(group.labelKey)}</span>
+            <ChevronDown size={16} className={clsx("transition-transform", open && "rotate-180")} />
+          </>
+        )}
+      </button>
+      {open && (
+        <div className="mt-1 space-y-0.5 border-s border-accent-500/25 ms-4 ps-1">
+          {group.children.map((item) => (
+            <NavLink key={item.href} item={item} pathname={pathname} nested locked={locked} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SidebarNav({ pathname, collapsed }: { pathname: string; collapsed: boolean }) {
   const { user } = useAuth();
   const locked = !isProfileComplete(user);
-  const resumeActive = RESUME_GROUP.children.some((c) => isActive(pathname, c.href));
-  const [resumeOpen, setResumeOpen] = useState(resumeActive);
-  const open = !collapsed && !locked && (resumeOpen || resumeActive);
-  const ResumeIcon = RESUME_GROUP.icon;
+  const isAdmin = user?.role === "ADMIN";
 
   return (
     <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-2">
@@ -168,41 +235,12 @@ function SidebarNav({ pathname, collapsed }: { pathname: string; collapsed: bool
         />
       ))}
 
-      <div>
-        <button
-          type="button"
-          title={collapsed ? t(RESUME_GROUP.labelKey) : undefined}
-          disabled={locked}
-          onClick={() => {
-            if (collapsed || locked) return;
-            setResumeOpen((v) => !v);
-          }}
-          className={clsx(
-            "flex w-full items-center gap-2.5 rounded-xl py-2.5 text-sm font-medium transition",
-            collapsed ? "justify-center px-2" : "px-3",
-            locked
-              ? "cursor-not-allowed opacity-40 text-[var(--zy-ink)]/70"
-              : resumeActive
-                ? "cursor-pointer bg-accent-500/15 text-accent-800 dark:text-accent-200"
-                : "cursor-pointer text-[var(--zy-ink)]/85 hover:bg-accent-500/10",
-          )}
-        >
-          <ResumeIcon size={18} className="text-accent-600 dark:text-accent-400" />
-          {!collapsed && (
-            <>
-              <span className="flex-1 text-start">{t(RESUME_GROUP.labelKey)}</span>
-              <ChevronDown size={16} className={clsx("transition-transform", open && "rotate-180")} />
-            </>
-          )}
-        </button>
-        {open && (
-          <div className="mt-1 space-y-0.5 border-s border-accent-500/25 ms-4 ps-1">
-            {RESUME_GROUP.children.map((item) => (
-              <NavLink key={item.href} item={item} pathname={pathname} nested locked={locked} />
-            ))}
-          </div>
-        )}
-      </div>
+      <CollapsibleNavGroup
+        group={RESUME_GROUP}
+        pathname={pathname}
+        collapsed={collapsed}
+        locked={locked}
+      />
 
       {NAV_SECONDARY.map((item) => (
         <NavLink
@@ -213,6 +251,15 @@ function SidebarNav({ pathname, collapsed }: { pathname: string; collapsed: bool
           locked={locked}
         />
       ))}
+
+      {isAdmin ? (
+        <CollapsibleNavGroup
+          group={ADMIN_GROUP}
+          pathname={pathname}
+          collapsed={collapsed}
+          locked={locked}
+        />
+      ) : null}
     </nav>
   );
 }

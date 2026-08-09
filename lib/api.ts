@@ -1,7 +1,7 @@
 import type { ApiResponse } from "@/types/account";
 import { t } from "@/lib/i18n";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8090/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 const TOKEN_KEY = "zy_account_token";
 
 export function getToken(): string | null {

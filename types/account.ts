@@ -22,6 +22,7 @@ export interface User {
   passwordSet?: boolean;
   nationalIdStatus?: VerificationStatus;
   birthCertificateStatus?: VerificationStatus;
+  role?: "USER" | "ADMIN";
 }
 
 export type VerificationStatus = "none" | "pending" | "approved" | "rejected";
@@ -162,8 +163,21 @@ export type TicketRecipient = "MANAGER" | "FINANCE" | "TECHNICAL";
 
 export type TicketStatus = "OPEN" | "IN_PROGRESS" | "ANSWERED" | "CLOSED";
 
+export type TicketMessageSenderRole = "USER" | "ADMIN" | "SYSTEM";
+
+export interface TicketMessage {
+  id: number;
+  senderUserId?: number | null;
+  senderRole: TicketMessageSenderRole;
+  body: string;
+  createdAt: string;
+}
+
 export interface SupportTicket {
   id: number;
+  userId?: number | null;
+  userPhone?: string | null;
+  userName?: string | null;
   subject: string;
   /** Legacy; new tickets use recipient instead. */
   category?: TicketCategory | null;
@@ -175,8 +189,91 @@ export interface SupportTicket {
   relatedName?: string | null;
   relatedId?: string | null;
   images?: string[];
+  messages?: TicketMessage[];
   createdAt: string;
   updatedAt?: string;
+}
+
+export type LogLevel = "ERROR" | "WARN" | "INFO";
+
+export type AppCodeFilter = "ACCOUNT" | "ZUNYAR" | "ZUNKO";
+
+export interface ApplicationLog {
+  id: number;
+  appCode: AppCodeFilter | string;
+  level: LogLevel | string;
+  loggerName?: string | null;
+  message: string;
+  stackTrace?: string | null;
+  userId?: number | null;
+  requestId?: string | null;
+  path?: string | null;
+  httpMethod?: string | null;
+  statusCode?: number | null;
+  createdAt: string;
+}
+
+export interface ApplicationLogPage {
+  content: ApplicationLog[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export type AffiliateCommissionStatus =
+  | "UNDER_REVIEW"
+  | "QUEUED"
+  | "SETTLED"
+  | "REJECTED"
+  | "ERROR";
+
+export interface AffiliateProgram {
+  id: number;
+  appCode: string;
+  nameFa: string;
+  description?: string;
+  customerDiscountPercent: number;
+  affiliateCommissionPercent: number;
+  hasCode: boolean;
+  myCode?: string | null;
+}
+
+export interface AffiliateCode {
+  id: number;
+  appCode: string;
+  appNameFa: string;
+  code: string;
+  customerDiscountPercent: number;
+  affiliateCommissionPercent: number;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface AffiliateConversion {
+  id: number;
+  appCode: string;
+  appNameFa: string;
+  code: string;
+  customerName: string;
+  customerPhone?: string | null;
+  customerOrgName?: string | null;
+  registeredCount: number;
+  amountPaid: number;
+  commissionPercent: number;
+  commissionAmount: number;
+  status: AffiliateCommissionStatus;
+  createdAt: string;
+}
+
+export interface AffiliateDashboard {
+  totalCommission: number;
+  settledCommission: number;
+  pendingCommission: number;
+  conversionCount: number;
+  programs: AffiliateProgram[];
+  codes: AffiliateCode[];
+  conversions: AffiliateConversion[];
 }
 
 export interface AppOption {

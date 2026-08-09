@@ -34,13 +34,13 @@ npm install
 npm run dev
 ```
 
-The dev server runs on **port 3010** (`next dev -p 3010`).
+The dev server runs on **port 3000** (`next dev -p 3000`).
 
 ### Environment variables
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8090/api` | Base URL of the Zunyar account backend API |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` | Base URL of the Zunyar account backend API |
 
 ## Project structure
 

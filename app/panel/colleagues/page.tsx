@@ -222,7 +222,7 @@ export default function ColleaguesPage() {
     setBusy(true);
     try {
       if (getOtpCooldownRemaining(editTarget.phone) <= 0) {
-        await api("/auth/send-otp", {
+        await api("/colleagues/request-otp", {
           method: "POST",
           body: JSON.stringify({ phone: editTarget.phone }),
         });

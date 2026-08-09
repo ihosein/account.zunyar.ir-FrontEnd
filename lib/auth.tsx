@@ -12,15 +12,31 @@ import {
 import { api, getToken, setToken } from "@/lib/api";
 import type { AuthResponse, User } from "@/types/account";
 
+type OtpSendResult = {
+  phone: string;
+  maskedPhone?: string;
+  debugCode?: string;
+};
+
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (phone: string, password: string) => Promise<User>;
   loginWithOtp: (phone: string, otp: string) => Promise<User>;
-  registerWithOtp: (phone: string, otp: string) => Promise<User>;
+  registerWithOtp: (phone: string, nationalCode: string, otp: string) => Promise<User>;
   checkPhone: (phone: string) => Promise<{ exists: boolean; phone: string }>;
-  sendOtp: (phone: string) => Promise<{ phone: string; debugCode?: string }>;
-  sendLoginOtp: (phone: string) => Promise<{ phone: string; debugCode?: string }>;
+  checkNationalCode: (
+    nationalCode: string,
+  ) => Promise<{ exists: boolean; nationalCode: string; maskedPhone: string }>;
+  sendOtp: (phone: string, nationalCode: string) => Promise<OtpSendResult>;
+  sendLoginOtp: (phone: string) => Promise<OtpSendResult>;
+  sendOtpByNationalCode: (nationalCode: string) => Promise<OtpSendResult>;
+  loginWithNationalCodeOtp: (nationalCode: string, otp: string) => Promise<User>;
+  resetPasswordByNationalCode: (
+    nationalCode: string,
+    otp: string,
+    newPassword: string,
+  ) => Promise<User>;
   logout: () => void;
   refresh: () => Promise<void>;
   updateUser: (patch: Partial<User>) => void;
@@ -61,17 +77,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const sendOtp = useCallback(async (phone: string) => {
-    return api<{ phone: string; debugCode?: string }>("/auth/send-otp", {
+  const checkNationalCode = useCallback(async (nationalCode: string) => {
+    return api<{ exists: boolean; nationalCode: string; maskedPhone: string }>(
+      "/auth/check-national-code",
+      {
+        method: "POST",
+        body: JSON.stringify({ nationalCode }),
+      },
+    );
+  }, []);
+
+  const sendOtp = useCallback(async (phone: string, nationalCode: string) => {
+    return api<OtpSendResult>("/auth/send-otp", {
+      method: "POST",
+      body: JSON.stringify({ phone, nationalCode }),
+    });
+  }, []);
+
+  const sendLoginOtp = useCallback(async (phone: string) => {
+    return api<OtpSendResult>("/auth/send-login-otp", {
       method: "POST",
       body: JSON.stringify({ phone }),
     });
   }, []);
 
-  const sendLoginOtp = useCallback(async (phone: string) => {
-    return api<{ phone: string; debugCode?: string }>("/auth/send-login-otp", {
+  const sendOtpByNationalCode = useCallback(async (nationalCode: string) => {
+    return api<OtpSendResult>("/auth/send-otp-by-national-code", {
       method: "POST",
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ nationalCode }),
     });
   }, []);
 
@@ -95,10 +128,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.user;
   }, []);
 
-  const registerWithOtp = useCallback(async (phone: string, otp: string) => {
+  const loginWithNationalCodeOtp = useCallback(async (nationalCode: string, otp: string) => {
+    const data = await api<AuthResponse>("/auth/login-national-code-otp", {
+      method: "POST",
+      body: JSON.stringify({ nationalCode, otp }),
+    });
+    setToken(data.token);
+    setUser(data.user);
+    return data.user;
+  }, []);
+
+  const resetPasswordByNationalCode = useCallback(
+    async (nationalCode: string, otp: string, newPassword: string) => {
+      const data = await api<AuthResponse>("/auth/reset-password-by-national-code", {
+        method: "POST",
+        body: JSON.stringify({ nationalCode, otp, newPassword }),
+      });
+      setToken(data.token);
+      setUser(data.user);
+      return data.user;
+    },
+    [],
+  );
+
+  const registerWithOtp = useCallback(async (phone: string, nationalCode: string, otp: string) => {
     const data = await api<AuthResponse>("/auth/register", {
       method: "POST",
-      body: JSON.stringify({ phone, otp }),
+      body: JSON.stringify({ phone, nationalCode, otp }),
     });
     setToken(data.token);
     setUser(data.user);
@@ -122,8 +178,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithOtp,
       registerWithOtp,
       checkPhone,
+      checkNationalCode,
       sendOtp,
       sendLoginOtp,
+      sendOtpByNationalCode,
+      loginWithNationalCodeOtp,
+      resetPasswordByNationalCode,
       logout,
       refresh,
       updateUser,
@@ -135,8 +195,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithOtp,
       registerWithOtp,
       checkPhone,
+      checkNationalCode,
       sendOtp,
       sendLoginOtp,
+      sendOtpByNationalCode,
+      loginWithNationalCodeOtp,
+      resetPasswordByNationalCode,
       logout,
       refresh,
       updateUser,

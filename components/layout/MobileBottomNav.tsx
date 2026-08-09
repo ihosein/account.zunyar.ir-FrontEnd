@@ -25,6 +25,8 @@ import {
   UserRound,
   Users,
   Wallet,
+  Handshake,
+  ScrollText,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/lib/auth";
@@ -330,7 +332,11 @@ export function MobileBottomNav() {
   const dashboardActive = isActive(pathname, "/panel/apps");
   const financeActive = isActive(pathname, "/panel/finance");
   const colleaguesActive = isActive(pathname, "/panel/colleagues");
-  const settingsActive = isActive(pathname, "/panel/sessions");
+  const isAdmin = user?.role === "ADMIN";
+  const settingsActive =
+    isActive(pathname, "/panel/sessions") ||
+    isActive(pathname, "/panel/affiliate") ||
+    isActive(pathname, "/panel/admin");
 
   const userAreaTiles: Tile[] = [
     { key: "profile", label: t("panel.personalInfo"), icon: UserRound, href: PROFILE_PATH },
@@ -379,12 +385,34 @@ export function MobileBottomNav() {
   const settingsTiles: Tile[] = [
     { key: "sessions", label: t("panel.sessionsShort"), icon: Radio, href: "/panel/sessions" },
     {
+      key: "affiliate",
+      label: t("panel.affiliate"),
+      icon: Handshake,
+      href: "/panel/affiliate",
+    },
+    {
       key: "support",
       label: t("support.title"),
       icon: Headphones,
       keepOpen: true,
       onClick: () => setSupportOpen(true),
     },
+    ...(isAdmin
+      ? ([
+          {
+            key: "admin-logs",
+            label: t("admin.logs"),
+            icon: ScrollText,
+            href: "/panel/admin/logs",
+          },
+          {
+            key: "admin-tickets",
+            label: t("admin.tickets"),
+            icon: Ticket,
+            href: "/panel/admin/tickets",
+          },
+        ] satisfies Tile[])
+      : []),
   ];
 
   const supportTiles: Tile[] = [
@@ -556,7 +584,7 @@ export function MobileBottomNav() {
             ))}
           </div>
         ) : (
-          <div className="flex gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {settingsTiles.map((tile) => (
               <CompactTile key={tile.key} tile={tile} onNavigate={closeSheet} iconSize={26} />
             ))}

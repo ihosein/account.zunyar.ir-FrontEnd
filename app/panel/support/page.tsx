@@ -120,6 +120,9 @@ function SupportTicketsContent() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [form, setForm] = useState<CreateForm>(EMPTY_FORM);
   const [detail, setDetail] = useState<SupportTicket | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [replyBody, setReplyBody] = useState("");
+  const [replyBusy, setReplyBusy] = useState(false);
   const [panelOptions, setPanelOptions] = useState<PanelOption[]>([]);
   const [panelsLoading, setPanelsLoading] = useState(true);
 
@@ -127,6 +130,40 @@ function SupportTicketsContent() {
     () => RECIPIENT_OPTIONS.map((c) => ({ value: c.value, label: t(c.labelKey) })),
     [],
   );
+
+  async function openDetail(ticket: SupportTicket) {
+    setDetailLoading(true);
+    setReplyBody("");
+    try {
+      const full = await api<SupportTicket>(`/tickets/${ticket.id}`);
+      setDetail(full);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.error"));
+      setDetail(ticket);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function sendReply(e: FormEvent) {
+    e.preventDefault();
+    if (!detail || isBlank(replyBody) || detail.status === "CLOSED") return;
+    setReplyBusy(true);
+    try {
+      const updated = await api<SupportTicket>(`/tickets/${detail.id}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ body: replyBody.trim() }),
+      });
+      setDetail(updated);
+      setReplyBody("");
+      setTickets((prev) => prev.map((t) => (t.id === updated.id ? { ...t, status: updated.status } : t)));
+      toast.success(t("support.replySent"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.error"));
+    } finally {
+      setReplyBusy(false);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -318,7 +355,7 @@ function SupportTicketsContent() {
             <button
               key={ticket.id}
               type="button"
-              onClick={() => setDetail(ticket)}
+              onClick={() => void openDetail(ticket)}
               className="glass-card-static w-full cursor-pointer p-1 text-start transition hover:opacity-95"
             >
               <div className="glass-inner !m-1 flex flex-wrap items-center justify-between gap-3 !p-4">
@@ -471,10 +508,15 @@ function SupportTicketsContent() {
 
       <GlassDialog
         open={!!detail}
-        onClose={() => setDetail(null)}
+        onClose={() => {
+          setDetail(null);
+          setReplyBody("");
+        }}
         title={detail?.subject || t("support.ticket")}
       >
-        {detail ? (
+        {detailLoading ? (
+          <p className="text-sm text-[var(--zy-muted)]">{t("common.loading")}</p>
+        ) : detail ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className={clsx("zy-chip", statusChipClass(detail.status))}>
@@ -491,7 +533,37 @@ function SupportTicketsContent() {
                 <span className="text-[var(--zy-ink)]">{detail.relatedName}</span>
               </p>
             ) : null}
-            <p className="whitespace-pre-wrap text-sm leading-7 text-[var(--zy-ink)]">{detail.body}</p>
+            <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-[var(--zy-border)] p-3">
+              {(detail.messages && detail.messages.length > 0
+                ? detail.messages
+                : [
+                    {
+                      id: 0,
+                      senderRole: "USER" as const,
+                      body: detail.body,
+                      createdAt: detail.createdAt,
+                    },
+                  ]
+              ).map((msg) => (
+                <div
+                  key={msg.id || "body"}
+                  className={clsx(
+                    "rounded-xl px-3 py-2 text-sm",
+                    msg.senderRole === "ADMIN"
+                      ? "bg-accent-500/10 text-[var(--zy-ink)]"
+                      : "bg-[var(--zy-surface)] text-[var(--zy-ink)]",
+                  )}
+                >
+                  <p className="mb-1 text-[11px] text-[var(--zy-muted)]">
+                    {msg.senderRole === "ADMIN"
+                      ? t("support.senderAdmin")
+                      : t("support.senderYou")}{" "}
+                    · {formatRelativeTime(msg.createdAt)}
+                  </p>
+                  <p className="whitespace-pre-wrap leading-7">{msg.body}</p>
+                </div>
+              ))}
+            </div>
             {detail.images && detail.images.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {detail.images.map((src, index) => (
@@ -508,7 +580,27 @@ function SupportTicketsContent() {
                 ))}
               </div>
             ) : null}
-            <p className="text-xs text-[var(--zy-muted)]">{formatRelativeTime(detail.createdAt)}</p>
+            {detail.status !== "CLOSED" ? (
+              <form onSubmit={sendReply} className="space-y-2 border-t border-[var(--zy-border)] pt-3">
+                <textarea
+                  value={replyBody}
+                  onChange={(e) => setReplyBody(e.target.value)}
+                  rows={3}
+                  placeholder={t("support.replyPlaceholder")}
+                  className={fieldInputClass(false, "resize-y")}
+                  maxLength={8000}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={replyBusy || isBlank(replyBody)}
+                    className={`${dialogPrimaryBtnClass} disabled:opacity-50`}
+                  >
+                    {replyBusy ? t("common.saving") : t("support.sendReply")}
+                  </button>
+                </div>
+              </form>
+            ) : null}
           </div>
         ) : null}
       </GlassDialog>
