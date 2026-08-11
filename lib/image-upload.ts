@@ -1,5 +1,5 @@
-/** Global upload size limit for all file inputs in the app. */
-export const MAX_UPLOAD_BYTES = 512 * 1024;
+/** Global upload size limit for identity docs and images (1 MB). */
+export const MAX_UPLOAD_BYTES = 1024 * 1024;
 
 export class UploadLimitError extends Error {
   readonly code = "UPLOAD_TOO_LARGE" as const;
@@ -115,8 +115,8 @@ export async function compressImageFile(
 
 /**
  * Prepare any upload for the app:
- * - images → heavy compression, then ≤ 512KB
- * - PDF / other → must already be ≤ 512KB (no recompress)
+ * - images → compression, then ≤ 1MB
+ * - PDF / other → must already be ≤ 1MB (no recompress)
  */
 export async function prepareUpload(file: File): Promise<PreparedUpload> {
   if (!file) throw new UploadTypeError();

@@ -664,6 +664,7 @@ body {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--zy-ink);
+  white-space: nowrap;
   backdrop-filter: blur(8px);
 }
 
@@ -1146,3 +1147,55 @@ html[dir="rtl"] .zy-tip__bubble {
     padding: 0 !important;
   }
 }
+
+/* Table pagination footer — same layout as zunyar.ir DataTable */
+.zy-table-pagination__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(13, 148, 136, 0.38);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--zy-ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease,
+    color 0.15s ease;
+}
+
+.dark .zy-table-pagination__btn {
+  background: rgba(16, 19, 25, 0.92);
+  border-color: rgba(20, 184, 166, 0.35);
+}
+
+.zy-table-pagination__btn:hover:not(:disabled) {
+  border-color: var(--zy-primary);
+  box-shadow: 0 0 0 2px var(--zy-glow-soft);
+  background: rgba(13, 148, 136, 0.1);
+}
+
+.zy-table-pagination__btn--active {
+  border-color: var(--zy-primary);
+  background: rgba(13, 148, 136, 0.18);
+  color: #0f766e;
+  box-shadow: 0 0 0 2px var(--zy-glow-soft);
+}
+
+.dark .zy-table-pagination__btn--active {
+  background: rgba(20, 184, 166, 0.28);
+  color: #fff;
+}
+
+.zy-table-pagination__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+

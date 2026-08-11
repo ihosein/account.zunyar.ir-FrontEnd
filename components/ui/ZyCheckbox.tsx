@@ -5,7 +5,8 @@ import clsx from "clsx";
 import type { InputHTMLAttributes } from "react";
 
 type ZyCheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
-  label: string;
+  /** Visible label; omit or leave empty for icon-only (table) checkboxes. */
+  label?: string;
 };
 
 /** Accessible checkbox with a visible check icon (not color-only). */
@@ -13,7 +14,7 @@ export function ZyCheckbox({ label, className, checked, ...props }: ZyCheckboxPr
   return (
     <label
       className={clsx(
-        "flex cursor-pointer items-center gap-2.5 text-sm text-[var(--zy-ink)]",
+        "inline-flex cursor-pointer items-center gap-2.5 text-sm text-[var(--zy-ink)]",
         props.disabled && "cursor-not-allowed opacity-55",
         className,
       )}
@@ -34,7 +35,7 @@ export function ZyCheckbox({ label, className, checked, ...props }: ZyCheckboxPr
           aria-hidden
         />
       </span>
-      <span>{label}</span>
+      {label ? <span>{label}</span> : null}
     </label>
   );
 }

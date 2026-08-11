@@ -6,13 +6,8 @@ import type { EducationHistory, Skill, User, WorkExperience } from "@/types/acco
 const STORAGE_KEY = "zy-resume-slug";
 const PROFILE_STORAGE_KEY = "zy-resume-profile";
 
-/** Reserved / taken slugs for uniqueness demo. */
+/** Reserved system slugs — cannot be claimed. */
 export const TAKEN_RESUME_SLUGS = new Set([
-  "sara-mohammadi",
-  "ali-rezaei",
-  "negar-hosseini",
-  "maryam-karimi",
-  "hossein-ahmadi",
   "admin",
   "support",
   "panel",
@@ -23,8 +18,15 @@ export const TAKEN_RESUME_SLUGS = new Set([
 export const RESUME_PUBLIC_HOST = "account.zunyar.ir";
 
 export function normalizeResumeSlug(raw: string): string {
-  return raw
-    .trim()
+  let value = raw.trim();
+  try {
+    if (/%[0-9A-Fa-f]{2}/.test(value)) {
+      value = decodeURIComponent(value);
+    }
+  } catch {
+    // keep original
+  }
+  return value
     .toLowerCase()
     .replace(/\s+/g, "-")
     .replace(/[^a-z0-9\u0600-\u06ff-]/gi, "")
@@ -71,8 +73,13 @@ export function isResumeSlugAvailable(slug: string, currentOwn?: string): boolea
   return !TAKEN_RESUME_SLUGS.has(n);
 }
 
+/**
+ * Public resume path. Non-ASCII namaks are percent-encoded so browsers,
+ * messengers, and reverse proxies don't break the link.
+ */
 export function publicResumeUrl(slug: string, absolute = false): string {
-  const path = `/${normalizeResumeSlug(slug)}`;
+  const n = normalizeResumeSlug(slug);
+  const path = `/${encodeURIComponent(n)}`;
   if (!absolute) return path;
   if (typeof window !== "undefined") {
     return `${window.location.origin}${path}`;
@@ -193,67 +200,9 @@ export function loadStoredResumeProfile(): PublicResumeDemo | null {
   }
 }
 
-const DEMO_BY_SLUG: Record<string, PublicResumeDemo> = {
-  "sara-mohammadi": {
-    slug: "sara-mohammadi",
-    fullName: "سارا محمدی",
-    title: "مدرس زبان انگلیسی",
-    city: "تهران",
-    phone: "0912•••••••",
-    about: "مدرس با تجربه در آموزش زبان انگلیسی به نوجوانان و بزرگسالان.",
-    education: [
-      {
-        school: "دانشگاه تهران",
-        degree: "کارشناسی ارشد",
-        field: "آموزش زبان انگلیسی",
-        years: "۱۳۹۶ – ۱۳۹۹",
-      },
-    ],
-    experience: [
-      {
-        company: "آموزشگاه تقی‌پور",
-        title: "مدرس",
-        years: "۱۴۰۰ – تاکنون",
-        description: "تدریس دوره‌های عمومی و تخصصی آیلتس.",
-      },
-    ],
-    skills: [
-      { name: "تدریس زبان", level: "پیشرفته" },
-      { name: "طراحی دوره", level: "متوسط" },
-    ],
-  },
-  "ali-rezaei": {
-    slug: "ali-rezaei",
-    fullName: "علی رضایی",
-    title: "دستیار آموزشی",
-    city: "اصفهان",
-    about: "علاقه‌مند به آموزش برنامه‌نویسی و پشتیبانی دوره‌های آنلاین.",
-    education: [
-      {
-        school: "دانشگاه صنعتی اصفهان",
-        degree: "کارشناسی",
-        field: "مهندسی کامپیوتر",
-        years: "۱۳۹۵ – ۱۳۹۹",
-      },
-    ],
-    experience: [
-      {
-        company: "آکادمی آنلاین زانکو",
-        title: "دستیار",
-        years: "۱۴۰۲ – تاکنون",
-      },
-    ],
-    skills: [
-      { name: "پایتون", level: "پیشرفته" },
-      { name: "پشتیبانی آموزشی", level: "متوسط" },
-    ],
-  },
-};
-
 export function getPublicResume(slug: string, fallbackName?: string): PublicResumeDemo | null {
   const n = normalizeResumeSlug(slug);
   if (!n) return null;
-  if (DEMO_BY_SLUG[n]) return DEMO_BY_SLUG[n];
 
   const own = loadStoredResumeSlug();
   if (own && own === n) {

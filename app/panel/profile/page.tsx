@@ -10,7 +10,7 @@ import { ProfileAvatar } from "@/components/ui/ProfileAvatar";
 import { DateSelect } from "@/components/ui/date-range-select";
 import { api, setToken } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { t } from "@/lib/i18n";
+import { t, tWithLtr } from "@/lib/i18n";
 import { citiesOfProvince, IRAN_PROVINCE_OPTIONS } from "@/lib/iran-locations";
 import { dialogPrimaryBtnClass, fieldInputClass, fieldLabelClass, isBlank } from "@/lib/ui";
 import { toast } from "@/lib/toast";
@@ -534,8 +534,8 @@ export default function ProfilePage() {
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-[var(--zy-muted)]" dir="rtl">
-              {t("auth.otpHint", { phone: contactValue })}
+            <p className="text-sm text-[var(--zy-muted)]">
+              {tWithLtr("auth.otpHint", "phone", contactValue)}
             </p>
             <InputOTP
               value={contactOtp}

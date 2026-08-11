@@ -192,6 +192,9 @@ export default function ResumeViewSettingsPage() {
               </div>
             </div>
             {slugStatus ? <div className="mt-1.5 flex justify-end">{slugStatus}</div> : null}
+            <p className="mt-2 text-xs leading-relaxed text-[var(--zy-muted)]">
+              {t("panel.resumeSlugEnglishHint")}
+            </p>
           </label>
         </div>
       </section>

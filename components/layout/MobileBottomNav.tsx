@@ -27,13 +27,19 @@ import {
   Wallet,
   Handshake,
   ScrollText,
+  Building2,
+  Server,
+  Megaphone,
+  Percent,
+  BadgeCheck,
 } from "lucide-react";
+import { MessagesHistoryButton } from "@/components/broadcast/MessagesHistoryButton";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { isProfileComplete, PROFILE_PATH } from "@/lib/profile-gate";
 
-type SheetId = "userArea" | "settings" | null;
+type SheetId = "userArea" | "settings" | "resume" | null;
 
 type Tile = {
   key: string;
@@ -323,19 +329,17 @@ export function MobileBottomNav() {
   const locked = !isProfileComplete(user);
   const [sheet, setSheet] = useState<SheetId>(null);
   const [supportOpen, setSupportOpen] = useState(false);
-  const [resumeOpen, setResumeOpen] = useState(false);
 
   const userAreaActive =
-    isActive(pathname, "/panel/profile") ||
-    isActive(pathname, "/panel/verification") ||
-    isActive(pathname, "/panel/resume");
+    isActive(pathname, "/panel/profile") || isActive(pathname, "/panel/verification");
+  const resumeActive = isActive(pathname, "/panel/resume");
   const dashboardActive = isActive(pathname, "/panel/apps");
-  const financeActive = isActive(pathname, "/panel/finance");
   const colleaguesActive = isActive(pathname, "/panel/colleagues");
   const isAdmin = user?.role === "ADMIN";
   const settingsActive =
     isActive(pathname, "/panel/sessions") ||
     isActive(pathname, "/panel/affiliate") ||
+    isActive(pathname, "/panel/finance") ||
     isActive(pathname, "/panel/admin");
 
   const userAreaTiles: Tile[] = [
@@ -345,13 +349,6 @@ export function MobileBottomNav() {
       label: t("panel.verification"),
       icon: ShieldCheck,
       href: "/panel/verification",
-    },
-    {
-      key: "resume",
-      label: t("panel.resume"),
-      icon: FileText,
-      keepOpen: true,
-      onClick: () => setResumeOpen(true),
     },
   ];
 
@@ -383,6 +380,7 @@ export function MobileBottomNav() {
   ];
 
   const settingsTiles: Tile[] = [
+    { key: "finance", label: t("panel.finance"), icon: Wallet, href: "/panel/finance" },
     { key: "sessions", label: t("panel.sessionsShort"), icon: Radio, href: "/panel/sessions" },
     {
       key: "affiliate",
@@ -400,10 +398,46 @@ export function MobileBottomNav() {
     ...(isAdmin
       ? ([
           {
+            key: "admin-customers",
+            label: t("admin.customers"),
+            icon: Building2,
+            href: "/panel/admin/customers",
+          },
+          {
+            key: "admin-payments",
+            label: t("admin.payments"),
+            icon: Wallet,
+            href: "/panel/admin/payments",
+          },
+          {
+            key: "admin-broadcast",
+            label: t("admin.broadcast"),
+            icon: Megaphone,
+            href: "/panel/admin/broadcast",
+          },
+          {
+            key: "admin-affiliates",
+            label: t("admin.affiliates"),
+            icon: Percent,
+            href: "/panel/admin/affiliates",
+          },
+          {
+            key: "admin-identity",
+            label: t("admin.identity"),
+            icon: BadgeCheck,
+            href: "/panel/admin/identity",
+          },
+          {
             key: "admin-logs",
             label: t("admin.logs"),
             icon: ScrollText,
             href: "/panel/admin/logs",
+          },
+          {
+            key: "admin-server",
+            label: t("admin.serverMonitor"),
+            icon: Server,
+            href: "/panel/admin/server",
           },
           {
             key: "admin-tickets",
@@ -442,7 +476,6 @@ export function MobileBottomNav() {
   function closeSheet() {
     setSheet(null);
     setSupportOpen(false);
-    setResumeOpen(false);
   }
 
   return (
@@ -454,7 +487,7 @@ export function MobileBottomNav() {
         style={{ paddingBottom: "max(0.35rem, env(safe-area-inset-bottom))" }}
       >
         <div className="mx-auto flex h-[4.25rem] max-w-lg items-end justify-between px-1 pb-1">
-          {/* راست → چپ: ناحیه کاربری | همکاری | داشبورد | مالی | تنظیمات */}
+          {/* راست → چپ: ناحیه کاربری | رزومه | داشبورد | همکاران | تنظیمات */}
           <NavSlot
             label={t("panel.userArea")}
             icon={UserRound}
@@ -465,16 +498,19 @@ export function MobileBottomNav() {
                 return;
               }
               setSupportOpen(false);
-              setResumeOpen(false);
               setSheet((s) => (s === "userArea" ? null : "userArea"));
             }}
           />
           <NavSlot
-            label={t("panel.colleagues")}
-            icon={Users}
-            href={locked ? undefined : "/panel/colleagues"}
+            label={t("panel.resume")}
+            icon={FileText}
             locked={locked}
-            active={colleaguesActive}
+            active={resumeActive || sheet === "resume"}
+            onClick={() => {
+              if (locked) return;
+              setSupportOpen(false);
+              setSheet((s) => (s === "resume" ? null : "resume"));
+            }}
           />
           <NavSlot
             label={t("panel.apps")}
@@ -485,11 +521,11 @@ export function MobileBottomNav() {
             large
           />
           <NavSlot
-            label={t("panel.finance")}
-            icon={Wallet}
-            href={locked ? undefined : "/panel/finance"}
+            label={t("panel.colleagues")}
+            icon={Users}
+            href={locked ? undefined : "/panel/colleagues"}
             locked={locked}
-            active={financeActive}
+            active={colleaguesActive}
           />
           <NavSlot
             label={t("panel.settings")}
@@ -499,7 +535,6 @@ export function MobileBottomNav() {
             onClick={() => {
               if (locked) return;
               setSupportOpen(false);
-              setResumeOpen(false);
               setSheet((s) => (s === "settings" ? null : "settings"));
             }}
           />
@@ -508,44 +543,34 @@ export function MobileBottomNav() {
 
       <BottomSheet
         open={sheet === "userArea"}
-        title={resumeOpen ? t("panel.resume") : t("panel.userArea")}
+        title={t("panel.userArea")}
         onClose={closeSheet}
       >
-        {resumeOpen ? (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setResumeOpen(false)}
-              className="flex min-h-[5.5rem] w-10 shrink-0 cursor-pointer flex-col items-center justify-center rounded-2xl border border-[var(--zy-border)] text-[var(--zy-muted)] transition hover:bg-accent-500/10"
-              aria-label={t("common.back")}
-            >
-              <ChevronDown size={18} className="rotate-90" />
-            </button>
-            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
-              {resumeTiles.map((tile) => (
-                <CompactTile
-                  key={tile.key}
-                  tile={tile}
-                  onNavigate={closeSheet}
-                  iconSize={26}
-                  locked={locked}
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            {userAreaTiles.map((tile) => (
-              <CompactTile
-                key={tile.key}
-                tile={tile}
-                onNavigate={closeSheet}
-                iconSize={32}
-                locked={locked && tile.href !== PROFILE_PATH}
-              />
-            ))}
-          </div>
-        )}
+        <div className="flex gap-2">
+          {userAreaTiles.map((tile) => (
+            <CompactTile
+              key={tile.key}
+              tile={tile}
+              onNavigate={closeSheet}
+              iconSize={32}
+              locked={locked && tile.href !== PROFILE_PATH}
+            />
+          ))}
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={sheet === "resume"} title={t("panel.resume")} onClose={closeSheet}>
+        <div className="grid grid-cols-2 gap-2">
+          {resumeTiles.map((tile) => (
+            <CompactTile
+              key={tile.key}
+              tile={tile}
+              onNavigate={closeSheet}
+              iconSize={26}
+              locked={locked}
+            />
+          ))}
+        </div>
       </BottomSheet>
 
       <BottomSheet
@@ -588,6 +613,7 @@ export function MobileBottomNav() {
             {settingsTiles.map((tile) => (
               <CompactTile key={tile.key} tile={tile} onNavigate={closeSheet} iconSize={26} />
             ))}
+            <MessagesHistoryButton variant="tile" />
             <ThemeSheetTile />
           </div>
         )}

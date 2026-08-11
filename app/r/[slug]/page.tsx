@@ -21,11 +21,14 @@ import type { EducationHistory, Skill, User, WorkExperience } from "@/types/acco
 
 export default function PublicResumePage() {
   const params = useParams<{ slug: string }>();
-  const slug = typeof params?.slug === "string" ? params.slug : "";
-  const [resume, setResume] = useState<PublicResumeDemo | null>(() => getPublicResume(slug));
+  const rawSlug = typeof params?.slug === "string" ? params.slug : "";
+  const slug = normalizeResumeSlug(rawSlug);
+  const [resume, setResume] = useState<PublicResumeDemo | null>(() =>
+    getPublicResume(slug),
+  );
 
   useEffect(() => {
-    const n = normalizeResumeSlug(slug);
+    const n = normalizeResumeSlug(rawSlug);
     setResume(getPublicResume(n));
 
     const own = loadStoredResumeSlug();
@@ -52,7 +55,7 @@ export default function PublicResumePage() {
     return () => {
       cancelled = true;
     };
-  }, [slug]);
+  }, [rawSlug]);
 
   if (!resume) {
     return (

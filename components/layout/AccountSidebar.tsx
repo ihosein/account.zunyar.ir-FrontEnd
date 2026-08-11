@@ -24,6 +24,11 @@ import {
   ScrollText,
   Headphones,
   Shield,
+  Building2,
+  Server,
+  Megaphone,
+  Percent,
+  BadgeCheck,
 } from "lucide-react";
 import { SupportMenu } from "@/components/layout/SupportMenu";
 import { BrandLogo } from "@/components/brand/BrandLogo";
@@ -67,7 +72,6 @@ const RESUME_GROUP: NavGroup = {
 const NAV_SECONDARY: NavItem[] = [
   { href: "/panel/colleagues", labelKey: "panel.colleagues", icon: Users },
   { href: "/panel/affiliate", labelKey: "panel.affiliate", icon: Handshake },
-  { href: "/panel/finance", labelKey: "panel.finance", icon: Wallet },
   { href: "/panel/sessions", labelKey: "panel.sessions", icon: Radio },
 ];
 
@@ -76,7 +80,13 @@ const ADMIN_GROUP: NavGroup = {
   labelKey: "admin.title",
   icon: Shield,
   children: [
+    { href: "/panel/admin/customers", labelKey: "admin.customers", icon: Building2 },
+    { href: "/panel/admin/payments", labelKey: "admin.payments", icon: Wallet },
+    { href: "/panel/admin/broadcast", labelKey: "admin.broadcast", icon: Megaphone },
+    { href: "/panel/admin/affiliates", labelKey: "admin.affiliates", icon: Percent },
+    { href: "/panel/admin/identity", labelKey: "admin.identity", icon: BadgeCheck },
     { href: "/panel/admin/logs", labelKey: "admin.logs", icon: ScrollText },
+    { href: "/panel/admin/server", labelKey: "admin.serverMonitor", icon: Server },
     { href: "/panel/admin/tickets", labelKey: "admin.tickets", icon: Headphones },
   ],
 };
@@ -251,6 +261,13 @@ function SidebarNav({ pathname, collapsed }: { pathname: string; collapsed: bool
           locked={locked}
         />
       ))}
+
+      <NavLink
+        item={{ href: "/panel/finance", labelKey: "panel.finance", icon: Wallet }}
+        pathname={pathname}
+        collapsed={collapsed}
+        locked={locked}
+      />
 
       {isAdmin ? (
         <CollapsibleNavGroup

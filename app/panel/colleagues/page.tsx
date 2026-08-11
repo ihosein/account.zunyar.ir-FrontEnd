@@ -32,76 +32,13 @@ const ROLE_OPTIONS = [
   { value: "coworker", label: "همکار" },
 ];
 
-/** Panels where the current user is a manager (demo). */
-const MY_MANAGED_PANELS = [
-  { id: "p1", appSlug: "ZUNYAR", appName: "زانیار", panelName: "آموزشگاه تقی‌پور" },
-  { id: "p2", appSlug: "ZUNKO", appName: "زانکو", panelName: "آکادمی آنلاین زانکو" },
-  { id: "p3", appSlug: "ZUNYAR", appName: "زانیار", panelName: "آموزشگاه زبان قلی" },
-];
-
-/** Temporary demo colleagues — replace when API returns data. */
-const DEMO_COLLEAGUES: Colleague[] = [
-  {
-    id: 1,
-    firstName: "سارا",
-    lastName: "محمدی",
-    phone: "09121234567",
-    appSlug: "ZUNYAR",
-    appName: "زانیار",
-    panelName: "آموزشگاه تقی‌پور",
-    role: "مدرس",
-    relation: "manager",
-    resumeSlug: "sara-mohammadi",
-  },
-  {
-    id: 2,
-    firstName: "علی",
-    lastName: "رضایی",
-    phone: "09129876543",
-    appSlug: "ZUNKO",
-    appName: "زانکو",
-    panelName: "آکادمی آنلاین زانکو",
-    role: "دستیار",
-    relation: "manager",
-    resumeSlug: "ali-rezaei",
-  },
-  {
-    id: 3,
-    firstName: "نگار",
-    lastName: "حسینی",
-    phone: "09351234567",
-    appSlug: "ZUNYAR",
-    appName: "زانیار",
-    panelName: "آموزشگاه تقی‌پور",
-    role: "حسابدار",
-    relation: "manager",
-    resumeSlug: "negar-hosseini",
-  },
-  {
-    id: 4,
-    firstName: "مریم",
-    lastName: "کریمی",
-    phone: "09121112233",
-    appSlug: "ZUNYAR",
-    appName: "زانیار",
-    panelName: "مدرسه اکبرخانی",
-    role: "مدیر",
-    relation: "employee",
-    resumeSlug: "maryam-karimi",
-  },
-  {
-    id: 5,
-    firstName: "حسین",
-    lastName: "احمدی",
-    phone: "09123334455",
-    appSlug: "ZUNKO",
-    appName: "زانکو",
-    panelName: "دوره طراحی وب",
-    role: "مدیر",
-    relation: "employee",
-    resumeSlug: "hossein-ahmadi",
-  },
-];
+type ManagedPanel = {
+  id: string;
+  panelId?: number;
+  appSlug: string;
+  appName: string;
+  panelName: string;
+};
 
 type AssignForm = {
   panelId: string;
@@ -116,13 +53,60 @@ const ACTION_BTN_CLASS =
 const DANGER_BTN_CLASS =
   "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-500/10";
 
+const APP_NAME: Record<string, string> = {
+  ZUNYAR: "زانیار",
+  ZUNKO: "زانکو",
+  ACCOUNT: "زانیار اکانت",
+};
+
 function roleLabel(code: string) {
   return ROLE_OPTIONS.find((r) => r.value === code)?.label ?? code;
 }
 
+function splitName(full?: string | null): { firstName: string; lastName: string } {
+  const parts = (full || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "—", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
+type ApiColleagueLink = {
+  id: number;
+  managerPhone?: string;
+  managerName?: string;
+  memberPhone?: string;
+  memberName?: string;
+  appCode?: string;
+  panelId?: number;
+  tenantName?: string;
+  roleCode?: string;
+  roleLabelFa?: string;
+  status?: string;
+};
+
+function mapLink(link: ApiColleagueLink, relation: "manager" | "employee"): Colleague {
+  const name =
+    relation === "manager"
+      ? splitName(link.memberName)
+      : splitName(link.managerName);
+  const appSlug = (link.appCode || "").toUpperCase();
+  return {
+    id: link.id,
+    firstName: name.firstName,
+    lastName: name.lastName,
+    phone: (relation === "manager" ? link.memberPhone : link.managerPhone) || "",
+    appSlug,
+    appName: APP_NAME[appSlug] || appSlug,
+    panelName: link.tenantName || "—",
+    role: link.roleLabelFa || roleLabel(link.roleCode || "") || "—",
+    relation,
+  };
+}
+
 export default function ColleaguesPage() {
   const router = useRouter();
-  const [rows, setRows] = useState<Colleague[]>(DEMO_COLLEAGUES);
+  const [rows, setRows] = useState<Colleague[]>([]);
+  const [managedPanels, setManagedPanels] = useState<ManagedPanel[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -140,10 +124,58 @@ export default function ColleaguesPage() {
     let active = true;
     (async () => {
       try {
-        const data = await api<Colleague[]>("/account/colleagues");
-        if (active && Array.isArray(data) && data.length > 0) setRows(data);
+        const [data, apps] = await Promise.all([
+          api<{ asManager?: ApiColleagueLink[]; asEmployee?: ApiColleagueLink[] }>("/colleagues"),
+          api<
+            Array<{
+              code: string;
+              nameFa?: string;
+              memberships?: Array<{
+                membershipId: number;
+                tenantName?: string;
+                roleLabelFa?: string;
+                roleCode?: string;
+                panelId?: number;
+              }>;
+            }>
+          >("/apps/connected").catch(() => []),
+        ]);
+        if (!active) return;
+        const mapped: Colleague[] = [
+          ...(data.asManager || []).map((l) => mapLink(l, "manager")),
+          ...(data.asEmployee || []).map((l) => mapLink(l, "employee")),
+        ];
+        setRows(mapped);
+
+        const panels: ManagedPanel[] = [];
+        for (const app of apps || []) {
+          const code = (app.code || "").toUpperCase();
+          if (!isProductAppCode(code)) continue;
+          for (const m of app.memberships || []) {
+            const label = m.roleLabelFa?.trim();
+            const role = m.roleCode?.trim().toUpperCase();
+            const isManager =
+              label === "مدیر" ||
+              role === "MANAGER" ||
+              role === "ADMIN" ||
+              role === "OWNER";
+            if (!isManager) continue;
+            const panelName = m.tenantName || "—";
+            panels.push({
+              id: String(m.panelId ?? m.membershipId),
+              panelId: m.panelId,
+              appSlug: code,
+              appName: APP_NAME[code] || app.nameFa || code,
+              panelName,
+            });
+          }
+        }
+        setManagedPanels(panels);
       } catch {
-        // keep demo
+        if (active) {
+          setRows([]);
+          setManagedPanels([]);
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -195,13 +227,13 @@ export default function ColleaguesPage() {
         )
         .map((r) => `${r.appSlug}::${r.panelName}`),
     );
-    return MY_MANAGED_PANELS.filter((p) => !already.has(`${p.appSlug}::${p.panelName}`)).map(
-      (p) => ({
+    return managedPanels
+      .filter((p) => !already.has(`${p.appSlug}::${p.panelName}`))
+      .map((p) => ({
         value: p.id,
         label: `${p.appName} · ${p.panelName}`,
-      }),
-    );
-  }, [editTarget, rows]);
+      }));
+  }, [editTarget, rows, managedPanels]);
 
   function openMessage(row: Colleague) {
     const name = `${row.firstName} ${row.lastName}`;
@@ -228,49 +260,33 @@ export default function ColleaguesPage() {
         });
         startOtpCooldown(editTarget.phone);
       }
+      setOtp("");
+      setOtpOpen(true);
     } catch {
-      // demo: continue
+      toast.error(t("common.error"));
     } finally {
       setBusy(false);
-      setOtp("");
-      setEditTarget((t) => t); // keep
-      setOtpOpen(true);
     }
   }
 
   async function confirmAssignWithOtp() {
     if (!editTarget || otp.length !== 5) return;
-    const panel = MY_MANAGED_PANELS.find((p) => p.id === assignForm.panelId);
+    const panel = managedPanels.find((p) => p.id === assignForm.panelId);
     if (!panel) return;
     setBusy(true);
     try {
-      try {
-        await api<Colleague>("/account/colleagues", {
-          method: "POST",
-          body: JSON.stringify({
-            phone: editTarget.phone,
-            appSlug: panel.appSlug,
-            panelName: panel.panelName,
-            role: assignForm.role,
-            otp,
-          }),
-        });
-      } catch {
-        // demo fallback
-      }
-      const created: Colleague = {
-        id: Date.now(),
-        firstName: editTarget.firstName,
-        lastName: editTarget.lastName,
-        phone: editTarget.phone,
-        appSlug: panel.appSlug,
-        appName: panel.appName,
-        panelName: panel.panelName,
-        role: roleLabel(assignForm.role),
-        relation: "manager",
-        resumeSlug: editTarget.resumeSlug,
-      };
-      setRows((prev) => [created, ...prev]);
+      const created = await api<ApiColleagueLink>("/colleagues", {
+        method: "POST",
+        body: JSON.stringify({
+          phone: editTarget.phone,
+          appCode: panel.appSlug,
+          panelId: panel.panelId ?? null,
+          roleCode: assignForm.role,
+          roleLabelFa: roleLabel(assignForm.role),
+          otp,
+        }),
+      });
+      setRows((prev) => [mapLink(created, "manager"), ...prev]);
       setOtpOpen(false);
       setEditTarget(null);
       setAssignForm(EMPTY_ASSIGN);
@@ -286,14 +302,13 @@ export default function ColleaguesPage() {
     if (!roleTarget || !roleValue) return;
     setBusy(true);
     try {
-      try {
-        await api(`/account/colleagues/${roleTarget.id}/role`, {
-          method: "PATCH",
-          body: JSON.stringify({ role: roleValue }),
-        });
-      } catch {
-        // demo
-      }
+      await api(`/colleagues/${roleTarget.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          roleCode: roleValue,
+          roleLabelFa: roleLabel(roleValue),
+        }),
+      });
       setRows((prev) =>
         prev.map((r) =>
           r.id === roleTarget.id ? { ...r, role: roleLabel(roleValue) } : r,
@@ -312,11 +327,7 @@ export default function ColleaguesPage() {
     if (!revokeTarget) return;
     setBusy(true);
     try {
-      try {
-        await api(`/account/colleagues/${revokeTarget.id}/revoke`, { method: "POST" });
-      } catch {
-        // demo
-      }
+      await api(`/colleagues/${revokeTarget.id}`, { method: "DELETE" });
       setRows((prev) => prev.filter((r) => r.id !== revokeTarget.id));
       setRevokeTarget(null);
       toast.success(t("common.deleted"));

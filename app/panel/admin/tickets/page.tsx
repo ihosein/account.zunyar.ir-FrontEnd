@@ -5,7 +5,10 @@ import { Headphones, Send } from "lucide-react";
 import clsx from "clsx";
 import { GlassDialog } from "@/components/ui/GlassDialog";
 import { GlassSelect } from "@/components/ui/GlassSelect";
+import { ResponsiveRecords } from "@/components/ui/ResponsiveRecords";
+import { TablePagination } from "@/components/ui/TablePagination";
 import { api } from "@/lib/api";
+import { appChipClass } from "@/lib/apps";
 import { faNum, t } from "@/lib/i18n";
 import { dialogPrimaryBtnClass, fieldInputClass, formatRelativeTime, isBlank } from "@/lib/ui";
 import { toast } from "@/lib/toast";
@@ -24,7 +27,21 @@ const STATUS_FILTERS = [
   { value: "CLOSED", labelKey: "admin.statusClosed" },
 ] as const;
 
+const APP_FILTERS = [
+  { value: "", labelKey: "admin.allApps" },
+  { value: "ACCOUNT", labelKey: "admin.appACCOUNT" },
+  { value: "ZUNYAR", labelKey: "admin.appZUNYAR" },
+  { value: "ZUNKO", labelKey: "admin.appZUNKO" },
+] as const;
+
 const STATUS_OPTIONS: TicketStatus[] = ["OPEN", "IN_PROGRESS", "ANSWERED", "CLOSED"];
+
+function appLabel(code?: string | null) {
+  if (!code) return "—";
+  const key = `admin.app${code}` as const;
+  const translated = t(key);
+  return translated === key ? code : translated;
+}
 
 function statusLabel(status: TicketStatus) {
   switch (status) {
@@ -44,15 +61,15 @@ function statusLabel(status: TicketStatus) {
 function statusChipClass(status: TicketStatus) {
   switch (status) {
     case "OPEN":
-      return "!border-emerald-500/30 !bg-emerald-500/10 !text-emerald-600 dark:!text-emerald-400";
+      return "!whitespace-nowrap !border-emerald-500/30 !bg-emerald-500/10 !text-emerald-600 dark:!text-emerald-400";
     case "IN_PROGRESS":
-      return "!border-amber-500/30 !bg-amber-500/10 !text-amber-700 dark:!text-amber-300";
+      return "!whitespace-nowrap !border-amber-500/30 !bg-amber-500/10 !text-amber-700 dark:!text-amber-300";
     case "ANSWERED":
-      return "!border-accent-500/30 !bg-accent-500/10 !text-accent-700 dark:!text-accent-300";
+      return "!whitespace-nowrap !border-accent-500/30 !bg-accent-500/10 !text-accent-700 dark:!text-accent-300";
     case "CLOSED":
-      return "!border-[var(--zy-border)] !bg-[var(--zy-surface)] !text-[var(--zy-muted)]";
+      return "!whitespace-nowrap !border-[var(--zy-border)] !bg-[var(--zy-surface)] !text-[var(--zy-muted)]";
     default:
-      return "";
+      return "!whitespace-nowrap";
   }
 }
 
@@ -82,8 +99,11 @@ function senderLabel(role: TicketMessageSenderRole) {
 
 export default function AdminTicketsPage() {
   const [statusFilter, setStatusFilter] = useState("");
+  const [appFilter, setAppFilter] = useState("");
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [detail, setDetail] = useState<SupportTicket | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [reply, setReply] = useState("");
@@ -91,26 +111,34 @@ export default function AdminTicketsPage() {
 
   const statusSelectOptions = useMemo(
     () => STATUS_OPTIONS.map((s) => ({ value: s, label: statusLabel(s) })),
-    [],
+    []
   );
 
   const loadList = useCallback(async () => {
     setLoading(true);
     try {
-      const query = statusFilter ? `?status=${encodeURIComponent(statusFilter)}` : "";
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
+      if (appFilter) params.set("appCode", appFilter);
+      const query = params.toString() ? `?${params.toString()}` : "";
       const data = await api<SupportTicket[]>(`/admin/tickets${query}`);
       setTickets(Array.isArray(data) ? data : []);
+      setPage(1);
     } catch (err) {
       setTickets([]);
       toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, appFilter]);
 
   useEffect(() => {
     void loadList();
   }, [loadList]);
+
+  const pageCount = Math.max(1, Math.ceil(tickets.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageRows = tickets.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   async function openDetail(ticket: SupportTicket) {
     setDetail(ticket);
@@ -190,15 +218,25 @@ export default function AdminTicketsPage() {
       </div>
 
       <div className="glass-card-static mt-6 p-1">
-        <div className="glass-inner !m-2 flex flex-wrap items-center gap-3 !p-4">
-          <span className="text-sm font-medium text-[var(--zy-muted)]">{t("admin.filterStatus")}</span>
-          <div className="w-full sm:w-56">
+        <div className="glass-inner !m-2 flex flex-wrap items-end gap-3 !p-4">
+          <label className="block min-w-[9rem] flex-1 text-sm sm:max-w-[12rem]">
+            <span className="text-[var(--zy-muted)]">{t("admin.filterApp")}</span>
             <GlassSelect
+              className="mt-1"
+              value={appFilter}
+              onChange={setAppFilter}
+              options={APP_FILTERS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
+            />
+          </label>
+          <label className="block min-w-[9rem] flex-1 text-sm sm:max-w-[12rem]">
+            <span className="text-[var(--zy-muted)]">{t("admin.filterStatus")}</span>
+            <GlassSelect
+              className="mt-1"
               value={statusFilter}
               onChange={setStatusFilter}
               options={STATUS_FILTERS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
             />
-          </div>
+          </label>
         </div>
       </div>
 
@@ -212,31 +250,97 @@ export default function AdminTicketsPage() {
           </div>
         </div>
       ) : (
-        <div className="mt-6 space-y-3">
-          {tickets.map((ticket) => {
-            const when = formatRelativeTime(ticket.createdAt) || faNum(ticket.id);
-            const userLine = [ticket.userName, ticket.userPhone].filter(Boolean).join(" · ");
-            return (
-              <button
-                key={ticket.id}
-                type="button"
-                onClick={() => void openDetail(ticket)}
-                className="glass-card-static w-full cursor-pointer p-1 text-start transition hover:opacity-95"
-              >
-                <div className="glass-inner !m-1 flex flex-wrap items-center justify-between gap-3 !p-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-bold text-[var(--zy-ink)]">{ticket.subject}</p>
-                    <p className="mt-0.5 text-xs text-[var(--zy-muted)]">
-                      {userLine ? `${userLine} · ${when}` : when}
-                    </p>
-                  </div>
-                  <span className={clsx("zy-chip shrink-0", statusChipClass(ticket.status))}>
-                    {statusLabel(ticket.status)}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
+        <div className="glass-card-static mt-6 p-1">
+          <div className="glass-inner !m-2 overflow-hidden !p-0">
+            <div className="p-2 md:p-0">
+              <ResponsiveRecords
+                fitWidth
+                columns={[
+                  t("admin.colSubject"),
+                  t("admin.colApp"),
+                  t("admin.colUser"),
+                  t("admin.colPanel"),
+                  t("admin.colStatus"),
+                  t("admin.colCreated"),
+                ]}
+                columnClassNames={[
+                  "w-auto",
+                  "w-[6.5rem]",
+                  "w-[9rem]",
+                  "w-[8rem]",
+                  "w-[7.5rem]",
+                  "w-[6rem]",
+                ]}
+                rows={pageRows.map((ticket) => {
+                  const when = formatRelativeTime(ticket.createdAt) || faNum(ticket.id);
+                  const userLine = [ticket.userName, ticket.userPhone].filter(Boolean).join(" · ") || "—";
+                  const statusNode = (
+                    <span className={clsx("zy-chip inline-flex", statusChipClass(ticket.status))}>
+                      {statusLabel(ticket.status)}
+                    </span>
+                  );
+                  const appNode = (
+                    <span className={clsx("zy-chip", appChipClass(ticket.appCode))}>
+                      {appLabel(ticket.appCode)}
+                    </span>
+                  );
+                  const subjectBtn = (
+                    <button
+                      type="button"
+                      onClick={() => void openDetail(ticket)}
+                      className="cursor-pointer text-start font-medium hover:text-accent-600 dark:hover:text-accent-400"
+                    >
+                      {ticket.subject}
+                    </button>
+                  );
+                  return {
+                    key: ticket.id,
+                    cells: [
+                      subjectBtn,
+                      appNode,
+                      <span key="u" className="text-sm text-[var(--zy-muted)]">
+                        {userLine}
+                      </span>,
+                      ticket.panelName || "—",
+                      statusNode,
+                      <span key="t" className="text-[var(--zy-muted)]">
+                        {when}
+                      </span>,
+                    ],
+                    details: [
+                      { label: t("admin.colSubject"), value: subjectBtn },
+                      { label: t("admin.colApp"), value: appNode },
+                      { label: t("admin.colUser"), value: userLine },
+                      { label: t("admin.colPanel"), value: ticket.panelName || "—" },
+                      { label: t("admin.colStatus"), value: statusNode },
+                      { label: t("admin.colCreated"), value: when },
+                    ],
+                    actions: (
+                      <button
+                        type="button"
+                        onClick={() => void openDetail(ticket)}
+                        className="inline-flex cursor-pointer items-center rounded-xl border border-[var(--zy-border)] px-3 py-1.5 text-xs font-semibold text-accent-700 transition hover:bg-accent-500/10 dark:text-accent-300"
+                      >
+                        {t("admin.reply")}
+                      </button>
+                    ),
+                  };
+                })}
+              />
+            </div>
+            <TablePagination
+              page={safePage}
+              pageCount={pageCount}
+              total={tickets.length}
+              pageSize={pageSize}
+              disabled={loading}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -262,6 +366,11 @@ export default function AdminTicketsPage() {
                   </p>
                 )}
                 {detail.panelName ? <span className="zy-chip">{detail.panelName}</span> : null}
+                {detail.appCode ? (
+                  <span className={clsx("zy-chip", appChipClass(detail.appCode))}>
+                    {appLabel(detail.appCode)}
+                  </span>
+                ) : null}
               </div>
               <div className="w-full sm:w-48">
                 <GlassSelect
@@ -282,7 +391,7 @@ export default function AdminTicketsPage() {
                     key={msg.id || `${msg.createdAt}-${msg.body.slice(0, 12)}`}
                     className={clsx(
                       "max-w-[90%] rounded-2xl border px-3 py-2 text-sm",
-                      messageBubbleClass(msg.senderRole),
+                      messageBubbleClass(msg.senderRole)
                     )}
                   >
                     <div className="mb-1 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-wide opacity-70">

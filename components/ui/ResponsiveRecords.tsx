@@ -11,7 +11,7 @@ export type DetailField = {
 
 type ResponsiveRecordsProps = {
   /** Desktop table header cells */
-  columns: string[];
+  columns: ReactNode[];
   rows: {
     key: string | number;
     /** Desktop table cells (same order as columns) */
@@ -56,7 +56,7 @@ export function ResponsiveRecords({
             <tr className="border-b border-[var(--zy-border)] text-xs text-[var(--zy-muted)]">
               {columns.map((col, i) => (
                 <th
-                  key={col}
+                  key={i}
                   className={
                     fitWidth
                       ? `px-3 py-3 text-start font-medium leading-snug ${columnClassNames?.[i] ?? ""}`

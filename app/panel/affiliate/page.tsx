@@ -188,7 +188,7 @@ export default function AffiliatePage() {
               >
                 {claiming ? <Loader2 size={16} className="animate-spin" /> : null}
                 {selectedProgram?.hasCode
-                  ? selectedProgram.myCode
+                  ? t("panel.affiliateGetCodeDone")
                   : t("panel.affiliateGetCode")}
               </button>
             </div>

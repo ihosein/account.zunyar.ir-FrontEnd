@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, ChevronLeft, LayoutGrid, School } from "lucide-react";
-import type { ComponentType } from "react";
+import { ChevronLeft, LayoutGrid } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { ZunkoLogo } from "@/components/brand/ZunkoLogo";
+import { InboxMessageCard } from "@/components/broadcast/InboxMessageCard";
 import { api } from "@/lib/api";
 import { isProductAppCode } from "@/lib/apps";
+import { archiveInboxMessages, filterUnseen, loadAllStoredMessageIds, markMessageSeen, pruneMissingMessages } from "@/lib/broadcast-inbox";
 import { t } from "@/lib/i18n";
+import type { InboxMessage } from "@/types/account";
 import clsx from "clsx";
 
 type Membership = {
@@ -36,24 +39,7 @@ const APP_DESCRIPTIONS: Record<string, string> = {
   ZUNKO: "سامانه آموزش مجازی",
 };
 
-/** Temporary demo panels for Zunyar — replace with API/DB data later. */
-const ZUNYAR_DEMO_PANELS: Membership[] = [
-  { membershipId: -1, tenantName: "مدرسه اکبرخانی", roleLabelFa: "مسئول پایه" },
-  { membershipId: -2, tenantName: "آموزشگاه زبان قلی", roleLabelFa: "معلم" },
-  {
-    membershipId: -3,
-    tenantName: "آموزشگاه تقی‌پور",
-    roleLabelFa: "مدیر",
-    subscriptionDaysRemaining: 42,
-  },
-];
-
-const ZUNYAR_LOGIN_URL = "https://zunyar.ir/login";
-
-const APP_ICONS: Record<string, ComponentType<{ size?: number; className?: string }>> = {
-  zunko: BookOpen,
-  zunyar: School,
-};
+const ZUNYAR_URL = "https://zunyar.ir";
 
 function isManagerRole(membership: Membership): boolean {
   const label = membership.roleLabelFa?.trim();
@@ -77,10 +63,17 @@ function AppIcon({ iconKey, name }: { iconKey?: string; name: string }) {
       </span>
     );
   }
-  const Icon = (iconKey && APP_ICONS[iconKey]) || LayoutGrid;
+  if (key === "zunko" || name.includes("زانکو")) {
+    return (
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-accent-500/10 transition group-hover:bg-accent-500/20">
+        <ZunkoLogo height={44} className="max-h-[120%] max-w-[120%] scale-110" />
+        <span className="sr-only">{name}</span>
+      </span>
+    );
+  }
   return (
     <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent-500/15 text-accent-600 transition group-hover:bg-accent-500/25 dark:text-accent-400">
-      <Icon size={24} />
+      <LayoutGrid size={24} />
       <span className="sr-only">{name}</span>
     </span>
   );
@@ -88,7 +81,7 @@ function AppIcon({ iconKey, name }: { iconKey?: string; name: string }) {
 
 function panelHref(app: AppConnection, membership: Membership): string | undefined {
   const code = app.code.toUpperCase();
-  if (code === "ZUNYAR") return ZUNYAR_LOGIN_URL;
+  if (code === "ZUNYAR") return ZUNYAR_URL;
   if (code === "ZUNKO") return membership.panelUrl || app.baseUrl || undefined;
   return app.baseUrl || undefined;
 }
@@ -96,6 +89,8 @@ function panelHref(app: AppConnection, membership: Membership): string | undefin
 export default function AppsPage() {
   const [apps, setApps] = useState<AppConnection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inboxByApp, setInboxByApp] = useState<Record<string, InboxMessage[]>>({});
+  const [accountMessages, setAccountMessages] = useState<InboxMessage[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -104,7 +99,7 @@ export default function AppsPage() {
         const data = await api<AppConnection[]>("/apps/connected");
         if (active) setApps(data);
       } catch {
-        setApps([]);
+        if (active) setApps([]);
       } finally {
         if (active) setLoading(false);
       }
@@ -121,10 +116,7 @@ export default function AppsPage() {
       if (code === "ZUNYAR") {
         return {
           ...app,
-          connected: true,
           description: APP_DESCRIPTIONS.ZUNYAR,
-          // Demo panels until backend memberships are wired for preview
-          memberships: ZUNYAR_DEMO_PANELS,
         };
       }
       if (code === "ZUNKO") {
@@ -142,10 +134,112 @@ export default function AppsPage() {
     });
   }, [apps]);
 
+  const visibleAppKey = visibleApps.map((a) => a.code.toUpperCase()).join(",");
+
+  /** هر بار لود داشبورد: پیام‌های جدید اکانت + نرم‌افزارهای متصل را بگیر. */
+  useEffect(() => {
+    if (loading) return;
+    let active = true;
+    const productCodes = visibleAppKey ? visibleAppKey.split(",").filter(Boolean) : [];
+    (async () => {
+      try {
+        const accountList = await api<InboxMessage[]>("/messages/inbox?app=ACCOUNT");
+        archiveInboxMessages(accountList);
+        if (active) setAccountMessages(filterUnseen(accountList));
+      } catch {
+        if (active) setAccountMessages([]);
+      }
+
+      if (productCodes.length === 0) {
+        if (active) setInboxByApp({});
+      } else {
+        const entries = await Promise.all(
+          productCodes.map(async (code) => {
+            try {
+              const list = await api<InboxMessage[]>(`/messages/inbox?app=${encodeURIComponent(code)}`);
+              archiveInboxMessages(list);
+              return [code, filterUnseen(list)] as const;
+            } catch {
+              return [code, [] as InboxMessage[]] as const;
+            }
+          }),
+        );
+        if (!active) return;
+        const next: Record<string, InboxMessage[]> = {};
+        for (const [code, list] of entries) next[code] = list;
+        setInboxByApp(next);
+      }
+
+      if (!active) return;
+      const storedIds = loadAllStoredMessageIds();
+      if (storedIds.length > 0) {
+        try {
+          const result = await api<{ ids: number[] }>("/messages/existing-ids", {
+            method: "POST",
+            body: JSON.stringify({ ids: storedIds }),
+          });
+          if (active) pruneMissingMessages(result?.ids || []);
+        } catch {
+          // ignore prune errors
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [loading, visibleAppKey]);
+
+  function dismissAccountMessage(id: number) {
+    markMessageSeen(id);
+    setAccountMessages((prev) => prev.filter((m) => m.id !== id));
+    setInboxByApp((prev) => {
+      const next: Record<string, InboxMessage[]> = {};
+      for (const [code, list] of Object.entries(prev)) {
+        next[code] = list.filter((m) => m.id !== id);
+      }
+      return next;
+    });
+  }
+
+  function dismissMessage(appCode: string, id: number) {
+    markMessageSeen(id);
+    setAccountMessages((prev) => prev.filter((m) => m.id !== id));
+    setInboxByApp((prev) => ({
+      ...prev,
+      [appCode]: (prev[appCode] || []).filter((m) => m.id !== id),
+    }));
+  }
+
+  const productMessageIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const list of Object.values(inboxByApp)) {
+      for (const m of list) ids.add(m.id);
+    }
+    return ids;
+  }, [inboxByApp]);
+
+  /** پیام‌های فقط اکانت؛ اگر همان پیام روی کارت نرم‌افزار هم هست دوباره نشان نده. */
+  const accountOnlyMessages = useMemo(
+    () => accountMessages.filter((m) => !productMessageIds.has(m.id)),
+    [accountMessages, productMessageIds],
+  );
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-[var(--zy-ink)]">{t("panel.apps")}</h1>
       <p className="mt-1 text-sm text-[var(--zy-muted)]">{t("panel.appsHint")}</p>
+
+      {accountOnlyMessages.length > 0 ? (
+        <div className="mt-4 space-y-2">
+          {accountOnlyMessages.map((msg) => (
+            <InboxMessageCard
+              key={msg.id}
+              message={msg}
+              onDismiss={dismissAccountMessage}
+            />
+          ))}
+        </div>
+      ) : null}
 
       {loading ? (
         <p className="mt-8 text-sm text-[var(--zy-muted)]">{t("common.loading")}</p>
@@ -160,9 +254,9 @@ export default function AppsPage() {
         <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {visibleApps.map((app) => {
             const code = app.code.toUpperCase();
-            const href =
-              code === "ZUNYAR" ? ZUNYAR_LOGIN_URL : app.baseUrl || undefined;
+            const href = code === "ZUNYAR" ? ZUNYAR_URL : app.baseUrl || undefined;
             const description = APP_DESCRIPTIONS[code] || app.description || "";
+            const messages = inboxByApp[code] || [];
 
             const titleBlock = (
               <>
@@ -181,6 +275,19 @@ export default function AppsPage() {
             return (
               <article key={app.code} className="glass-card p-1">
                 <div className="glass-inner !m-2 !p-5">
+                  {messages.length > 0 ? (
+                    <div className="mb-4 space-y-2">
+                      {messages.map((msg) => (
+                        <InboxMessageCard
+                          key={msg.id}
+                          message={msg}
+                          compact
+                          onDismiss={(id) => dismissMessage(code, id)}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+
                   <div className="flex items-start justify-between gap-3">
                     {href ? (
                       <a

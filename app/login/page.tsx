@@ -4,13 +4,29 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { ZunkoLogo } from "@/components/brand/ZunkoLogo";
 import { InputOTP } from "@/components/ui/InputOTP";
 import { useAuth } from "@/lib/auth";
-import { t } from "@/lib/i18n";
+import { t, tWithLtr } from "@/lib/i18n";
 import { getOtpCooldownRemaining, startOtpCooldown } from "@/lib/otp-cooldown";
 import { isProfileComplete, isValidNationalCode, PROFILE_PATH } from "@/lib/profile-gate";
 import { dialogPrimaryBtnClass, fieldInputClass, fieldLabelClass, isBlank } from "@/lib/ui";
 import { toast } from "@/lib/toast";
+
+const PRODUCT_LINKS = [
+  {
+    id: "zunyar",
+    href: "https://zunyar.ir",
+    nameKey: "auth.apps.zunyar",
+    descKey: "auth.apps.zunyarDesc",
+  },
+  {
+    id: "zunko",
+    href: "https://zunko.ir",
+    nameKey: "auth.apps.zunko",
+    descKey: "auth.apps.zunkoDesc",
+  },
+] as const;
 
 type Mode = "phone" | "national";
 type Step =
@@ -20,6 +36,7 @@ type Step =
   | "loginOtp"
   | "register"
   | "nationalCode"
+  | "nationalLogin"
   | "nationalOtp"
   | "nationalReset";
 
@@ -33,6 +50,7 @@ function normalizePhoneInput(raw: string): string {
 export default function LoginPage() {
   const {
     login,
+    loginWithNationalCode,
     loginWithOtp,
     registerWithOtp,
     checkPhone,
@@ -156,16 +174,11 @@ export default function LoginPage() {
     try {
       const check = await checkNationalCode(nationalCode);
       setMaskedPhone(check.maskedPhone);
-      const key = `nc:${nationalCode}`;
-      if (getOtpCooldownRemaining(key) <= 0) {
-        const otpRes = await sendOtpByNationalCode(nationalCode);
-        setDebugOtp(otpRes.debugCode || "");
-        setMaskedPhone(otpRes.maskedPhone || check.maskedPhone);
-        markOtpSent(key);
-      }
+      setPassword("");
       setOtp("");
+      setDebugOtp("");
       lastTriedOtp.current = "";
-      setStep("nationalOtp");
+      setStep("nationalLogin");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
@@ -191,6 +204,24 @@ export default function LoginPage() {
     }
   }
 
+  async function onNationalLogin(e: FormEvent) {
+    e.preventDefault();
+    if (!password.trim()) {
+      toast.error(t("auth.login.passwordRequired"));
+      return;
+    }
+    setBusy(true);
+    try {
+      const u = await loginWithNationalCode(nationalCode, password);
+      router.push(isProfileComplete(u) ? "/panel/apps" : PROFILE_PATH);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t("auth.login.error");
+      toast.error(/رمز عبور/.test(msg) ? t("auth.national.badCredentials") : msg);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function startLoginOtp() {
     setBusy(true);
     try {
@@ -203,6 +234,26 @@ export default function LoginPage() {
       setOtp("");
       lastTriedOtp.current = "";
       setStep("loginOtp");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startNationalOtp() {
+    setBusy(true);
+    try {
+      const key = `nc:${nationalCode}`;
+      if (getOtpCooldownRemaining(key) <= 0) {
+        const otpRes = await sendOtpByNationalCode(nationalCode);
+        setDebugOtp(otpRes.debugCode || "");
+        setMaskedPhone(otpRes.maskedPhone || maskedPhone);
+        markOtpSent(key);
+      }
+      setOtp("");
+      lastTriedOtp.current = "";
+      setStep("nationalOtp");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
@@ -292,7 +343,10 @@ export default function LoginPage() {
   }
 
   const title =
-    step === "nationalCode" || step === "nationalOtp" || step === "nationalReset"
+    step === "nationalCode" ||
+    step === "nationalLogin" ||
+    step === "nationalOtp" ||
+    step === "nationalReset"
       ? t("auth.national.title")
       : step === "phone" || step === "registerNational"
         ? t("auth.unified.title")
@@ -304,16 +358,18 @@ export default function LoginPage() {
 
   const subtitle =
     step === "nationalOtp" || step === "nationalReset"
-      ? t("auth.national.otpHint", { phone: maskedPhone || "—" })
-      : step === "nationalCode"
-        ? t("auth.national.subtitle")
-        : step === "registerNational"
-          ? t("auth.national.registerHint")
-          : step === "phone"
-            ? t("auth.unified.subtitle")
-            : step === "login"
-              ? t("auth.unified.loginHint", { phone })
-              : t("auth.otpHint", { phone: maskedPhone || phone });
+      ? tWithLtr("auth.national.otpHint", "phone", maskedPhone || "—")
+      : step === "nationalLogin"
+        ? t("auth.national.loginHint")
+        : step === "nationalCode"
+          ? t("auth.national.subtitle")
+          : step === "registerNational"
+            ? t("auth.national.registerHint")
+            : step === "phone"
+              ? t("auth.unified.subtitle")
+              : step === "login"
+                ? tWithLtr("auth.unified.loginHint", "phone", phone)
+                : tWithLtr("auth.otpHint", "phone", maskedPhone || phone);
 
   const resendLabel =
     cooldown > 0 ? t("auth.otpResendWait", { seconds: cooldown }) : t("auth.otpResend");
@@ -429,7 +485,46 @@ export default function LoginPage() {
                 />
               </label>
               <button type="submit" disabled={busy} className={`${dialogPrimaryBtnClass} w-full`}>
-                {busy ? t("common.loading") : t("auth.sendOtp")}
+                {busy ? t("common.loading") : t("auth.unified.continue")}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {step === "nationalLogin" && (
+          <form onSubmit={onNationalLogin} noValidate className="glass-card-static mt-6 p-1">
+            <div className="glass-inner !m-2 space-y-4 !p-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("nationalCode");
+                  setPassword("");
+                }}
+                className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-accent-600"
+              >
+                <ArrowRight size={14} />
+                {t("auth.national.changeCode")}
+              </button>
+              <label className="field-label">
+                <span className={fieldLabelClass(isBlank(password))}>{t("auth.login.password")}</span>
+                <input
+                  className={fieldInputClass(isBlank(password))}
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </label>
+              <button type="submit" disabled={busy} className={`${dialogPrimaryBtnClass} w-full`}>
+                {busy ? t("auth.login.submitting") : t("auth.login.submit")}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void startNationalOtp()}
+                className="w-full cursor-pointer text-center text-sm font-medium text-accent-600"
+              >
+                {t("auth.national.forgotPassword")}
               </button>
             </div>
           </form>
@@ -489,18 +584,16 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => {
                   if (step === "loginOtp") setStep("login");
-                  else if (step === "nationalOtp") setStep("nationalCode");
+                  else if (step === "nationalOtp") setStep("nationalLogin");
                   else setStep("registerNational");
                   setOtp("");
                 }}
                 className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-accent-600"
               >
                 <ArrowRight size={14} />
-                {step === "loginOtp"
+                {step === "loginOtp" || step === "nationalOtp"
                   ? t("auth.loginWithPassword")
-                  : step === "nationalOtp"
-                    ? t("auth.national.changeCode")
-                    : t("auth.unified.changePhone")}
+                  : t("auth.unified.changePhone")}
               </button>
 
               <InputOTP
@@ -594,6 +687,40 @@ export default function LoginPage() {
           <ShieldCheck size={14} className="text-accent-600 dark:text-accent-400" />
           {t("brand.tagline")}
         </p>
+
+        <div className="mt-3 flex items-center justify-center gap-2">
+          {PRODUCT_LINKS.map((app) => {
+            const name = t(app.nameKey);
+            const desc = t(app.descKey);
+            return (
+              <a
+                key={app.id}
+                href={app.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`${name} — ${desc}`}
+                aria-label={`${name}: ${desc}`}
+                className="group inline-flex max-w-[9.5rem] cursor-pointer items-center gap-2 rounded-xl border border-[var(--zy-border)] bg-[var(--zy-surface)]/70 px-2.5 py-2 text-start transition hover:border-accent-500/40 hover:bg-accent-500/10"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-accent-500/10 transition group-hover:bg-accent-500/20">
+                  {app.id === "zunyar" ? (
+                    <BrandLogo height={18} className="max-h-full max-w-full" />
+                  ) : (
+                    <ZunkoLogo height={30} className="max-h-[130%] max-w-[130%] scale-110" />
+                  )}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-bold text-[var(--zy-ink)]">
+                    {name}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[10px] leading-snug text-[var(--zy-muted)]">
+                    {desc}
+                  </span>
+                </span>
+              </a>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -22,6 +22,7 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (phone: string, password: string) => Promise<User>;
+  loginWithNationalCode: (nationalCode: string, password: string) => Promise<User>;
   loginWithOtp: (phone: string, otp: string) => Promise<User>;
   registerWithOtp: (phone: string, nationalCode: string, otp: string) => Promise<User>;
   checkPhone: (phone: string) => Promise<{ exists: boolean; phone: string }>;
@@ -70,6 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  const applyAuth = useCallback((data: AuthResponse) => {
+    setToken(data.token);
+    setUser(data.user);
+    return data.user;
+  }, []);
+
   const checkPhone = useCallback(async (phone: string) => {
     return api<{ exists: boolean; phone: string }>("/auth/check-phone", {
       method: "POST",
@@ -108,35 +115,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const login = useCallback(async (phone: string, password: string) => {
-    const data = await api<AuthResponse>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ phone, password }),
-    });
-    setToken(data.token);
-    setUser(data.user);
-    return data.user;
-  }, []);
+  const login = useCallback(
+    async (phone: string, password: string) => {
+      const data = await api<AuthResponse>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ phone, password }),
+      });
+      return applyAuth(data);
+    },
+    [applyAuth],
+  );
 
-  const loginWithOtp = useCallback(async (phone: string, otp: string) => {
-    const data = await api<AuthResponse>("/auth/login-otp", {
-      method: "POST",
-      body: JSON.stringify({ phone, otp }),
-    });
-    setToken(data.token);
-    setUser(data.user);
-    return data.user;
-  }, []);
+  const loginWithNationalCode = useCallback(
+    async (nationalCode: string, password: string) => {
+      const data = await api<AuthResponse>("/auth/login-national-code", {
+        method: "POST",
+        body: JSON.stringify({ nationalCode, password }),
+      });
+      return applyAuth(data);
+    },
+    [applyAuth],
+  );
 
-  const loginWithNationalCodeOtp = useCallback(async (nationalCode: string, otp: string) => {
-    const data = await api<AuthResponse>("/auth/login-national-code-otp", {
-      method: "POST",
-      body: JSON.stringify({ nationalCode, otp }),
-    });
-    setToken(data.token);
-    setUser(data.user);
-    return data.user;
-  }, []);
+  const loginWithOtp = useCallback(
+    async (phone: string, otp: string) => {
+      const data = await api<AuthResponse>("/auth/login-otp", {
+        method: "POST",
+        body: JSON.stringify({ phone, otp }),
+      });
+      return applyAuth(data);
+    },
+    [applyAuth],
+  );
+
+  const loginWithNationalCodeOtp = useCallback(
+    async (nationalCode: string, otp: string) => {
+      const data = await api<AuthResponse>("/auth/login-national-code-otp", {
+        method: "POST",
+        body: JSON.stringify({ nationalCode, otp }),
+      });
+      return applyAuth(data);
+    },
+    [applyAuth],
+  );
 
   const resetPasswordByNationalCode = useCallback(
     async (nationalCode: string, otp: string, newPassword: string) => {
@@ -144,22 +165,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: JSON.stringify({ nationalCode, otp, newPassword }),
       });
-      setToken(data.token);
-      setUser(data.user);
-      return data.user;
+      return applyAuth(data);
     },
-    [],
+    [applyAuth],
   );
 
-  const registerWithOtp = useCallback(async (phone: string, nationalCode: string, otp: string) => {
-    const data = await api<AuthResponse>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ phone, nationalCode, otp }),
-    });
-    setToken(data.token);
-    setUser(data.user);
-    return data.user;
-  }, []);
+  const registerWithOtp = useCallback(
+    async (phone: string, nationalCode: string, otp: string) => {
+      const data = await api<AuthResponse>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ phone, nationalCode, otp }),
+      });
+      return applyAuth(data);
+    },
+    [applyAuth],
+  );
 
   const logout = useCallback(() => {
     setToken(null);
@@ -175,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login,
+      loginWithNationalCode,
       loginWithOtp,
       registerWithOtp,
       checkPhone,
@@ -192,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login,
+      loginWithNationalCode,
       loginWithOtp,
       registerWithOtp,
       checkPhone,
