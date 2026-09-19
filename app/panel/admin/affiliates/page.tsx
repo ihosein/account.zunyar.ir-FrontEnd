@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { GlassDialog } from "@/components/ui/GlassDialog";
 import { GlassSelect } from "@/components/ui/GlassSelect";
 import { ResponsiveRecords } from "@/components/ui/ResponsiveRecords";
+import { TablePagination } from "@/components/ui/TablePagination";
 import { ZyCheckbox } from "@/components/ui/ZyCheckbox";
 import { api } from "@/lib/api";
 import { appChipClass, isZunkoApp } from "@/lib/apps";
@@ -123,6 +124,8 @@ export default function AdminAffiliatesPage() {
   const [demoMode, setDemoMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [appFilter, setAppFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [editTarget, setEditTarget] = useState<AdminAffiliatePartner | null>(null);
   const [form, setForm] = useState<EditForm>({
     code: "",
@@ -159,6 +162,14 @@ export default function AdminAffiliatesPage() {
     if (!appFilter) return rows;
     return rows.filter((r) => (r.appCode || "").toUpperCase() === appFilter);
   }, [rows, appFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [appFilter]);
+
+  const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageRows = visible.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   function openEdit(row: AdminAffiliatePartner) {
     setEditTarget(row);
@@ -272,7 +283,7 @@ export default function AdminAffiliatesPage() {
                   "w-[5rem]",
                   "w-[5rem]",
                 ]}
-                rows={visible.map((row) => {
+                rows={pageRows.map((row) => {
                   const nameCell = (
                     <div className="min-w-0">
                       <p className="truncate font-medium text-[var(--zy-ink)]">{fullName(row)}</p>
@@ -343,6 +354,18 @@ export default function AdminAffiliatesPage() {
                 })}
               />
             </div>
+            <TablePagination
+              page={safePage}
+              pageCount={pageCount}
+              total={visible.length}
+              pageSize={pageSize}
+              disabled={loading}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
           </div>
         </div>
       )}
@@ -358,9 +381,9 @@ export default function AdminAffiliatesPage() {
               {fullName(editTarget)} · {appLabel(editTarget.appCode)}
             </p>
             <div>
-              <label className={fieldLabelClass}>{t("admin.colDiscountCode")}</label>
+              <label className={fieldLabelClass(false)}>{t("admin.colDiscountCode")}</label>
               <input
-                className={fieldInputClass}
+                className={fieldInputClass(false)}
                 dir="ltr"
                 value={form.code}
                 onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
@@ -368,9 +391,9 @@ export default function AdminAffiliatesPage() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className={fieldLabelClass}>{t("admin.colCustomerDiscount")}</label>
+                <label className={fieldLabelClass(false)}>{t("admin.colCustomerDiscount")}</label>
                 <input
-                  className={fieldInputClass}
+                  className={fieldInputClass(false)}
                   inputMode="decimal"
                   value={form.customerDiscountPercent}
                   onChange={(e) =>
@@ -379,9 +402,9 @@ export default function AdminAffiliatesPage() {
                 />
               </div>
               <div>
-                <label className={fieldLabelClass}>{t("admin.colCommission")}</label>
+                <label className={fieldLabelClass(false)}>{t("admin.colCommission")}</label>
                 <input
-                  className={fieldInputClass}
+                  className={fieldInputClass(false)}
                   inputMode="decimal"
                   value={form.affiliateCommissionPercent}
                   onChange={(e) =>

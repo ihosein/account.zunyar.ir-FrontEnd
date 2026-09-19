@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, getToken, setToken } from "@/lib/api";
+import { api, clearLocalToken, getToken, setToken } from "@/lib/api";
 import type { AuthResponse, User } from "@/types/account";
 
 type OtpSendResult = {
@@ -38,7 +38,7 @@ interface AuthContextValue {
     otp: string,
     newPassword: string,
   ) => Promise<User>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refresh: () => Promise<void>;
   updateUser: (patch: Partial<User>) => void;
 }
@@ -50,17 +50,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
+    // Cookie-first: always try /auth/me with credentials. Bearer is only a
+    // localhost fallback; production relies on HttpOnly cookie alone.
+    const hasLocalBearer = Boolean(getToken());
     try {
       const me = await api<User>("/auth/me");
       setUser(me);
     } catch {
-      setToken(null);
+      if (hasLocalBearer) {
+        setToken(null);
+      }
+      clearLocalToken();
       setUser(null);
     } finally {
       setLoading(false);
@@ -181,8 +181,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyAuth],
   );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await api<null>("/auth/logout", { method: "POST" });
+    } catch {
+      // Cookie clear may still succeed server-side; always drop local session.
+    }
     setToken(null);
+    clearLocalToken();
     setUser(null);
   }, []);
 

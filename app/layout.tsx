@@ -28,7 +28,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fa" dir="rtl" className={vazirmatn.variable} suppressHydrationWarning>
+    <html
+      lang="fa"
+      dir="rtl"
+      className={vazirmatn.variable}
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <body className="font-[family-name:var(--font-vazirmatn)] antialiased">
         <Providers>
           <RouteLoader />

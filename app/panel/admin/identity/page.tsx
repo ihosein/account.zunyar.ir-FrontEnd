@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { GlassDialog } from "@/components/ui/GlassDialog";
 import { GlassSelect } from "@/components/ui/GlassSelect";
 import { ResponsiveRecords } from "@/components/ui/ResponsiveRecords";
+import { TablePagination } from "@/components/ui/TablePagination";
 import { api, apiBlob } from "@/lib/api";
 import { faNum, t } from "@/lib/i18n";
 import {
@@ -112,6 +113,8 @@ export default function AdminIdentityPage() {
   const [items, setItems] = useState<AdminIdentityDoc[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [preview, setPreview] = useState<AdminIdentityDoc | null>(null);
   const [rejectTarget, setRejectTarget] = useState<AdminIdentityDoc | null>(null);
   const [rejectNote, setRejectNote] = useState("");
@@ -124,6 +127,7 @@ export default function AdminIdentityPage() {
       const data = await api<AdminIdentityList>(`/admin/identity${query}`);
       setItems(Array.isArray(data.items) ? data.items : []);
       setPendingCount(Number(data.pendingCount) || 0);
+      setPage(1);
     } catch (err) {
       setItems([]);
       toast.error(err instanceof Error ? err.message : t("common.error"));
@@ -135,6 +139,10 @@ export default function AdminIdentityPage() {
   useEffect(() => {
     void loadList();
   }, [loadList]);
+
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageRows = items.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const filterOptions = useMemo(
     () => STATUS_FILTERS.map((o) => ({ value: o.value, label: t(o.labelKey) })),
@@ -249,7 +257,7 @@ export default function AdminIdentityPage() {
                   t("admin.colSubmittedAt"),
                   t("common.actions"),
                 ]}
-                rows={items.map((row) => {
+                rows={pageRows.map((row) => {
                   const nameCell = (
                     <div className="min-w-0">
                       <p className="truncate font-medium text-[var(--zy-ink)]">{fullName(row)}</p>
@@ -308,6 +316,18 @@ export default function AdminIdentityPage() {
                 })}
               />
             </div>
+            <TablePagination
+              page={safePage}
+              pageCount={pageCount}
+              total={items.length}
+              pageSize={pageSize}
+              disabled={loading}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
           </div>
         </div>
       )}

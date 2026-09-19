@@ -1,15 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Building2, LogOut, Users } from "lucide-react";
+import { Building2, LogOut, Plus, Users } from "lucide-react";
 import clsx from "clsx";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { GlassDialog } from "@/components/ui/GlassDialog";
 import { GlassSelect } from "@/components/ui/GlassSelect";
 import { ResponsiveRecords } from "@/components/ui/ResponsiveRecords";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { api } from "@/lib/api";
 import { appChipClass, isZunkoApp } from "@/lib/apps";
 import { faNum, t } from "@/lib/i18n";
+import { dialogPrimaryBtnClass, fieldInputClass, fieldLabelClass } from "@/lib/ui";
 import { toast } from "@/lib/toast";
 import type {
   AdminAccountUser,
@@ -20,6 +22,7 @@ import type {
 } from "@/types/account";
 
 type TabId = "panels" | "users";
+type PlanCode = "start" | "growth" | "peak";
 
 type PendingRevoke = {
   key: string;
@@ -28,11 +31,42 @@ type PendingRevoke = {
   title: string;
 };
 
+type CreatePanelForm = {
+  ownerPhone: string;
+  organizationName: string;
+  planCode: PlanCode;
+  studentCount: string;
+  years: string;
+};
+
+const EMPTY_CREATE_FORM: CreatePanelForm = {
+  ownerPhone: "",
+  organizationName: "",
+  planCode: "start",
+  studentCount: "40",
+  years: "1",
+};
+
 const APP_OPTIONS = [
   { value: "", labelKey: "admin.allApps" },
   { value: "ZUNYAR", labelKey: "admin.appZUNYAR" },
   { value: "ZUNKO", labelKey: "admin.appZUNKO" },
 ] as const;
+
+const PANEL_ROLES_BY_APP: Record<string, { value: string; labelKey: string }[]> = {
+  ZUNYAR: [
+    { value: "student", labelKey: "admin.panelRoleStudent" },
+    { value: "parent", labelKey: "admin.panelRoleParent" },
+    { value: "teacher", labelKey: "admin.panelRoleTeacher" },
+    { value: "staff", labelKey: "admin.panelRoleStaff" },
+    { value: "manager", labelKey: "admin.panelRoleManager" },
+  ],
+  ZUNKO: [
+    { value: "student", labelKey: "admin.panelRoleUniversityStudent" },
+    { value: "support", labelKey: "admin.panelRoleSupport" },
+    { value: "teacher", labelKey: "admin.panelRoleInstructor" },
+  ],
+};
 
 function appLabel(code?: string | null) {
   if (!code) return "—";
@@ -71,6 +105,7 @@ function managerCell(row: AdminPanelCustomer) {
 export default function AdminCustomersPage() {
   const [tab, setTab] = useState<TabId>("panels");
   const [appCode, setAppCode] = useState("");
+  const [role, setRole] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [q, setQ] = useState("");
   const [pageSize, setPageSize] = useState(10);
@@ -80,6 +115,9 @@ export default function AdminCustomersPage() {
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [pendingRevoke, setPendingRevoke] = useState<PendingRevoke | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState<CreatePanelForm>(EMPTY_CREATE_FORM);
+  const [createBusy, setCreateBusy] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -112,6 +150,8 @@ export default function AdminCustomersPage() {
     try {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
+      if (role) params.set("role", role);
+      if (appCode) params.set("appCode", appCode);
       params.set("page", String(page));
       params.set("size", String(pageSize));
       const result = await api<AdminAccountUserPage>(`/admin/users?${params.toString()}`);
@@ -122,7 +162,7 @@ export default function AdminCustomersPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, page, pageSize]);
+  }, [appCode, role, q, page, pageSize]);
 
   useEffect(() => {
     if (tab === "panels") {
@@ -156,6 +196,67 @@ export default function AdminCustomersPage() {
       toast.error(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setBusyKey(null);
+    }
+  }
+
+  function openCreatePanel() {
+    setCreateForm(EMPTY_CREATE_FORM);
+    setCreateOpen(true);
+  }
+
+  function closeCreatePanel() {
+    if (createBusy) return;
+    setCreateOpen(false);
+  }
+
+  async function submitCreatePanel() {
+    const ownerPhone = createForm.ownerPhone.trim();
+    const organizationName = createForm.organizationName.trim();
+    const studentCount = Number(createForm.studentCount);
+    const years = Number(createForm.years);
+
+    if (!ownerPhone) {
+      toast.error(t("admin.ownerPhone"));
+      return;
+    }
+    if (!organizationName) {
+      toast.error(t("admin.organizationName"));
+      return;
+    }
+    if (!Number.isFinite(studentCount) || studentCount < 1) {
+      toast.error(t("admin.studentCount"));
+      return;
+    }
+    if (!Number.isFinite(years) || years < 1 || years > 10) {
+      toast.error(t("admin.subscriptionYears"));
+      return;
+    }
+
+    setCreateBusy(true);
+    try {
+      const created = await api<AdminPanelCustomer>("/admin/panels", {
+        method: "POST",
+        body: JSON.stringify({
+          ownerPhone,
+          organizationName,
+          planCode: createForm.planCode,
+          studentCount: Math.floor(studentCount),
+          years: Math.floor(years),
+        }),
+      });
+      toast.success(created?.panelName || t("admin.createPanel"));
+      setCreateOpen(false);
+      setCreateForm(EMPTY_CREATE_FORM);
+      if (tab !== "panels") {
+        setTab("panels");
+        setPage(0);
+      } else {
+        await loadPanels();
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.error"));
+    } finally {
+      setCreateBusy(false);
     }
   }
 
@@ -228,23 +329,33 @@ export default function AdminCustomersPage() {
             <p className="mt-1 text-sm text-[var(--zy-muted)]">{t("admin.customersHint")}</p>
           </div>
         </div>
-        <button
-          type="button"
-          disabled={busyKey !== null}
-          onClick={() =>
-            askRevoke(
-              "all",
-              "/admin/sessions/revoke-all",
-              t("admin.revokeConfirmAll"),
-              t("admin.revokeConfirmTitleAll")
-            )
-          }
-          className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-300"
-          title={t("admin.revokeAllSessionsHint")}
-        >
-          <LogOut size={16} />
-          {t("admin.revokeAllSessions")}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={openCreatePanel}
+            className={clsx(dialogPrimaryBtnClass, "inline-flex items-center gap-1.5 !px-3.5 !py-2")}
+          >
+            <Plus size={16} />
+            {t("admin.createPanel")}
+          </button>
+          <button
+            type="button"
+            disabled={busyKey !== null}
+            onClick={() =>
+              askRevoke(
+                "all",
+                "/admin/sessions/revoke-all",
+                t("admin.revokeConfirmAll"),
+                t("admin.revokeConfirmTitleAll")
+              )
+            }
+            className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-300"
+            title={t("admin.revokeAllSessionsHint")}
+          >
+            <LogOut size={16} />
+            {t("admin.revokeAllSessions")}
+          </button>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">
@@ -305,7 +416,48 @@ export default function AdminCustomersPage() {
                 options={APP_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
               />
             </label>
-          ) : null}
+          ) : (
+            <>
+              <label className="block min-w-[9rem] flex-1 text-sm sm:max-w-[12rem]">
+                <span className="text-[var(--zy-muted)]">{t("admin.filterApp")}</span>
+                <GlassSelect
+                  className="mt-1"
+                  value={appCode}
+                  onChange={(v) => {
+                    setAppCode(v);
+                    setRole("");
+                    setPage(0);
+                  }}
+                  options={APP_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
+                />
+              </label>
+              <label className="block min-w-[9rem] flex-1 text-sm sm:max-w-[12rem]">
+                <span className="text-[var(--zy-muted)]">{t("admin.filterRole")}</span>
+                <GlassSelect
+                  className="mt-1"
+                  value={role}
+                  onChange={(v) => {
+                    setRole(v);
+                    setPage(0);
+                  }}
+                  options={
+                    appCode
+                      ? [
+                          { value: "", label: t("admin.allRoles") },
+                          ...(PANEL_ROLES_BY_APP[appCode] || []).map((o) => ({
+                            value: o.value,
+                            label: t(o.labelKey),
+                          })),
+                        ]
+                      : [
+                          { value: "", label: t("admin.allRoles") },
+                          { value: "no_panel", label: t("admin.noPanelRoles") },
+                        ]
+                  }
+                />
+              </label>
+            </>
+          )}
           {data ? (
             <p className="ms-auto text-xs text-[var(--zy-muted)]">
               {tab === "panels"
@@ -551,6 +703,83 @@ export default function AdminCustomersPage() {
         danger
         busy={busyKey != null}
       />
+
+      <GlassDialog
+        open={createOpen}
+        onClose={closeCreatePanel}
+        title={t("admin.createPanelTitle")}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--zy-muted)]">{t("admin.createPanelHint")}</p>
+          <div>
+            <label className={fieldLabelClass(false)}>{t("admin.ownerPhone")}</label>
+            <input
+              className={fieldInputClass(false)}
+              dir="ltr"
+              inputMode="tel"
+              value={createForm.ownerPhone}
+              onChange={(e) =>
+                setCreateForm((f) => ({ ...f, ownerPhone: e.target.value }))
+              }
+              placeholder="09xxxxxxxxx"
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass(false)}>{t("admin.organizationName")}</label>
+            <input
+              className={fieldInputClass(false)}
+              value={createForm.organizationName}
+              onChange={(e) =>
+                setCreateForm((f) => ({ ...f, organizationName: e.target.value }))
+              }
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass(false)}>{t("admin.planCode")}</label>
+            <GlassSelect
+              value={createForm.planCode}
+              onChange={(v) =>
+                setCreateForm((f) => ({ ...f, planCode: v as PlanCode }))
+              }
+              options={[
+                { value: "start", label: t("admin.planStart") },
+                { value: "growth", label: t("admin.planGrowth") },
+                { value: "peak", label: t("admin.planPeak") },
+              ]}
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass(false)}>{t("admin.studentCount")}</label>
+            <input
+              className={fieldInputClass(false)}
+              dir="ltr"
+              inputMode="numeric"
+              value={createForm.studentCount}
+              onChange={(e) =>
+                setCreateForm((f) => ({ ...f, studentCount: e.target.value }))
+              }
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass(false)}>{t("admin.subscriptionYears")}</label>
+            <input
+              className={fieldInputClass(false)}
+              dir="ltr"
+              inputMode="numeric"
+              value={createForm.years}
+              onChange={(e) => setCreateForm((f) => ({ ...f, years: e.target.value }))}
+            />
+          </div>
+          <button
+            type="button"
+            disabled={createBusy}
+            onClick={() => void submitCreatePanel()}
+            className={clsx(dialogPrimaryBtnClass, "w-full disabled:opacity-50")}
+          >
+            {createBusy ? t("common.saving") : t("admin.createPanel")}
+          </button>
+        </div>
+      </GlassDialog>
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
   Server,
   Megaphone,
   Percent,
+  Tag,
   BadgeCheck,
 } from "lucide-react";
 import { SupportMenu } from "@/components/layout/SupportMenu";
@@ -84,6 +85,7 @@ const ADMIN_GROUP: NavGroup = {
     { href: "/panel/admin/payments", labelKey: "admin.payments", icon: Wallet },
     { href: "/panel/admin/broadcast", labelKey: "admin.broadcast", icon: Megaphone },
     { href: "/panel/admin/affiliates", labelKey: "admin.affiliates", icon: Percent },
+    { href: "/panel/admin/discount-codes", labelKey: "admin.discountCodes", icon: Tag },
     { href: "/panel/admin/identity", labelKey: "admin.identity", icon: BadgeCheck },
     { href: "/panel/admin/logs", labelKey: "admin.logs", icon: ScrollText },
     { href: "/panel/admin/server", labelKey: "admin.serverMonitor", icon: Server },
@@ -178,26 +180,61 @@ function CollapsibleNavGroup({
   pathname,
   collapsed,
   locked,
+  expandUp = false,
 }: {
   group: NavGroup;
   pathname: string;
   collapsed: boolean;
   locked: boolean;
+  /** وقتی true، زیرمنو بالای دکمه باز می‌شود (از پایین به بالا). */
+  expandUp?: boolean;
 }) {
   const groupActive = group.children.some((c) => isActive(pathname, c.href));
-  const [manualOpen, setManualOpen] = useState(groupActive);
-  const open = !collapsed && !locked && (manualOpen || groupActive);
+  const [open, setOpen] = useState(groupActive);
   const GroupIcon = group.icon;
+
+  useEffect(() => {
+    if (groupActive) {
+      setOpen(true);
+    }
+  }, [groupActive]);
+
+  const visible = !collapsed && !locked && open;
+
+  const submenu = (
+    <div
+      className={clsx(
+        "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
+        visible ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+      )}
+      aria-hidden={!visible}
+    >
+      <div className="overflow-hidden">
+        <div
+          className={clsx(
+            "space-y-0.5 border-s border-accent-500/25 ms-4 ps-1",
+            expandUp ? "mb-1" : "mt-1",
+          )}
+        >
+          {group.children.map((item) => (
+            <NavLink key={item.href} item={item} pathname={pathname} nested locked={locked} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div>
+      {expandUp ? submenu : null}
       <button
         type="button"
         title={collapsed ? t(group.labelKey) : undefined}
         disabled={locked}
+        aria-expanded={visible}
         onClick={() => {
           if (collapsed || locked) return;
-          setManualOpen((v) => !v);
+          setOpen((v) => !v);
         }}
         className={clsx(
           "flex w-full items-center gap-2.5 rounded-xl py-2.5 text-sm font-medium transition",
@@ -213,17 +250,21 @@ function CollapsibleNavGroup({
         {!collapsed && (
           <>
             <span className="flex-1 text-start">{t(group.labelKey)}</span>
-            <ChevronDown size={16} className={clsx("transition-transform", open && "rotate-180")} />
+            <ChevronDown
+              size={16}
+              className={clsx(
+                "shrink-0 transition-transform duration-300 ease-out",
+                expandUp
+                  ? visible
+                    ? "rotate-0"
+                    : "rotate-180"
+                  : visible && "rotate-180",
+              )}
+            />
           </>
         )}
       </button>
-      {open && (
-        <div className="mt-1 space-y-0.5 border-s border-accent-500/25 ms-4 ps-1">
-          {group.children.map((item) => (
-            <NavLink key={item.href} item={item} pathname={pathname} nested locked={locked} />
-          ))}
-        </div>
-      )}
+      {!expandUp ? submenu : null}
     </div>
   );
 }
@@ -244,13 +285,6 @@ function SidebarNav({ pathname, collapsed }: { pathname: string; collapsed: bool
           locked={locked && item.href !== PROFILE_PATH}
         />
       ))}
-
-      <CollapsibleNavGroup
-        group={RESUME_GROUP}
-        pathname={pathname}
-        collapsed={collapsed}
-        locked={locked}
-      />
 
       {NAV_SECONDARY.map((item) => (
         <NavLink
@@ -277,6 +311,16 @@ function SidebarNav({ pathname, collapsed }: { pathname: string; collapsed: bool
           locked={locked}
         />
       ) : null}
+
+      <div className="mt-auto pt-2">
+        <CollapsibleNavGroup
+          group={RESUME_GROUP}
+          pathname={pathname}
+          collapsed={collapsed}
+          locked={locked}
+          expandUp
+        />
+      </div>
     </nav>
   );
 }

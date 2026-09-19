@@ -431,6 +431,21 @@ export interface AdminAffiliatePartner {
   createdAt?: string;
 }
 
+/** کد تخفیف عمومی یا ویژهٔ کاربر (پنل ادمین). */
+export interface AdminDiscountCode {
+  id: number;
+  code: string;
+  appCode: string;
+  appNameFa?: string | null;
+  discountPercent: number;
+  active: boolean;
+  userId?: number | null;
+  userName?: string | null;
+  userPhone?: string | null;
+  note?: string | null;
+  createdAt?: string;
+}
+
 export type IdentityDocType = "NATIONAL_ID" | "BIRTH_CERT" | "OTHER";
 export type IdentityDocStatus = "PENDING" | "APPROVED" | "REJECTED";
 

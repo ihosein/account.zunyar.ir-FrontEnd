@@ -31,6 +31,7 @@ import {
   Server,
   Megaphone,
   Percent,
+  Tag,
   BadgeCheck,
 } from "lucide-react";
 import { MessagesHistoryButton } from "@/components/broadcast/MessagesHistoryButton";
@@ -420,6 +421,12 @@ export function MobileBottomNav() {
             label: t("admin.affiliates"),
             icon: Percent,
             href: "/panel/admin/affiliates",
+          },
+          {
+            key: "admin-discount-codes",
+            label: t("admin.discountCodes"),
+            icon: Tag,
+            href: "/panel/admin/discount-codes",
           },
           {
             key: "admin-identity",

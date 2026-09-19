@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { Copy, Printer } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { ResumeDocument } from "@/components/resume/ResumeDocument";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import {
   buildResumeFromProfile,
   getPublicResume,
@@ -32,7 +32,8 @@ export default function PublicResumePage() {
     setResume(getPublicResume(n));
 
     const own = loadStoredResumeSlug();
-    if (!n || !own || own !== n || !getToken()) return;
+    // Cookie-first: do not gate on getToken(); /auth/me works via HttpOnly cookie.
+    if (!n || !own || own !== n) return;
 
     let cancelled = false;
     async function refreshOwn() {
@@ -48,7 +49,7 @@ export default function PublicResumePage() {
         saveStoredResumeProfile(built);
         setResume(built);
       } catch {
-        // keep cached / placeholder
+        // Not signed in or network error — keep cached public demo.
       }
     }
     void refreshOwn();

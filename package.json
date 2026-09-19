@@ -8,7 +8,8 @@
 		"dev": "next dev -p 3000",
 		"build": "next build",
 		"start": "next start -p 3000",
-		"lint": "eslint --fix"
+		"lint": "eslint --fix",
+		"audit:deps": "npm audit --omit=dev"
 	},
 	"dependencies": {
 		"@heroui/react": "3.2.1",
